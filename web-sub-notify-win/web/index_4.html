@@ -44,11 +44,11 @@
 <script>
 $(document).ready(function () {
     // 连接服务端
-    var socket = io('http://'+document.domain+':2120');
+    var socket = io('http://'+document.domain+':2124');
     // 连接后登录
     socket.on('connect', function(){
     	socket.emit('login', uid);
-        socket.emit('register', uid, 2, 1);
+        socket.emit('register', uid, 1, 2);
     });
     // 后端推送来消息时
     socket.on('quoteUpdate', function(data){
