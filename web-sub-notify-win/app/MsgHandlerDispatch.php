@@ -5,7 +5,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+namespace App;
 
+use App\MsgIds;
 /**
  * 通信消息处理中心
  * 将gateway接收到消息在这里分发

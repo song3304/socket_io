@@ -30,6 +30,7 @@ class QuoteClass {
             'product_id'=>$product_id,
             'match_id'=>$match_id,
             'data'=>$json,
+            'event_type'=>'quoteUpdate',    //推客户端的事件类型
         ));
     }
 }
