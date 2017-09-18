@@ -196,7 +196,13 @@ class SubNotify
             return;
         }
         // 将消息发给所有人
-        $this->sender_io->emit('quoteUpdate', json_encode($json->data));
+        $data = json_decode($json->data);
+        $event_type = isset($data->event_type) ? (string)$data->event_type : '';
+        if (empty($event_type)) {
+            //消息类型为空
+            return;
+        }
+        $this->sender_io->emit($event_type, json_encode($json->data));
     }
 
     /*
@@ -213,7 +219,13 @@ class SubNotify
             return;
         }
         // 将消息发给相应的组
-        $this->sender_io->to($json->room)->emit('quoteUpdate', json_encode($json->data));
+        $data = json_decode($json->data);
+        $event_type = isset($data->event_type) ? (string)$data->event_type : '';
+        if (empty($event_type)) {
+            //消息类型为空
+            return;
+        }
+        $this->sender_io->to($json->room)->emit($event_type, json_encode($json->data));
     }
 
     /*
@@ -233,7 +245,13 @@ class SubNotify
         }
         // 将消息发给相应的客户端
         unset($json->id);
-        $this->uidConnectionMap[$json->to_client]->emit('quoteUpdate', json_encode($json));
+        $data = json_decode($json->data);
+        $event_type = isset($data->event_type) ? (string)$data->event_type : '';
+        if (empty($event_type)) {
+            //消息类型为空
+            return;
+        }
+        $this->uidConnectionMap[$json->to_client]->emit($event_type, json_encode($json));
     }
 
     /*
@@ -338,7 +356,7 @@ class SubNotify
                 // 进入房间名单
                 $socket->join($roomId);
                 // 通知进入房间了
-                $this->sender_io->to($roomId)->emit('member_enter', $uid);
+                $this->sender_io->to($roomId)->emit('member_enter', $uid, $product_id, $match_id);
             });
 
             // 当客户端请求更新报价数据
@@ -365,7 +383,6 @@ class SubNotify
                 $msg = ToClientClass::output($socket->uid, $to_uid, $data);
                 //通知该组的客户端
                 $this->sendToClient($socket->uid, $to_uid, $msg);
-                Worker::log(QuoteClass::output($product_id, $match_id, $data));
             });
 
             // 当客户端断开连接时触发（一般是关闭网页或者跳转刷新导致）

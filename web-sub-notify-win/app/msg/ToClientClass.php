@@ -30,6 +30,7 @@ class ToClientClass {
             'client'=>$uid,
             'to_client'=>$to_uid,
             'data'=>$json,
+            'event_type'=>'client_call_me',    //推客户端的事件类型
         ));
     }
 }
