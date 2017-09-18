@@ -15,6 +15,10 @@ class ComposerStaticInit64df2b4acc24e5b80d169d0edb305800
         array (
             'PHPSocketIO\\' => 12,
         ),
+        'G' => 
+        array (
+            'GatewayWorker\\' => 14,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -25,6 +29,11 @@ class ComposerStaticInit64df2b4acc24e5b80d169d0edb305800
         'PHPSocketIO\\' => 
         array (
             0 => __DIR__ . '/..' . '/workerman/phpsocket.io-for-win/src',
+        ),
+        'GatewayWorker\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/src',
+            1 => __DIR__ . '/..' . '/workerman/gateway-worker-for-win/src',
         ),
     );
 

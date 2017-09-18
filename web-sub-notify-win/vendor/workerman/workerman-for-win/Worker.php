@@ -37,7 +37,7 @@ class Worker
      * 版本号
      * @var string
      */
-    const VERSION = '3.5.0';
+    const VERSION = '3.5.1';
     
     /**
      * 状态 启动中
@@ -192,7 +192,7 @@ class Worker
      * 例如 new worker('http://0.0.0.0:8080');指定使用http协议
      * @var string
      */
-    protected $protocol = '';
+    protected $protocol = null;
     
     /**
      * 当前worker实例初始化目录位置，用于设置应用自动加载的根目录

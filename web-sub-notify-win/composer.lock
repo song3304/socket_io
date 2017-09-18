@@ -4,8 +4,42 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "bfadb7697160311645fbff80acd4d72d",
+    "content-hash": "16ef89f2389ce2aad5d0225f3ded835f",
     "packages": [
+        {
+            "name": "workerman/gateway-worker-for-win",
+            "version": "v3.0.7",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/walkor/GatewayWorker-for-win.git",
+                "reference": "ea75b5d581db1762e9928f5729200a1abcaba496"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/walkor/GatewayWorker-for-win/zipball/ea75b5d581db1762e9928f5729200a1abcaba496",
+                "reference": "ea75b5d581db1762e9928f5729200a1abcaba496",
+                "shasum": ""
+            },
+            "require": {
+                "workerman/workerman-for-win": ">=3.1.8"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "GatewayWorker\\": "./src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "homepage": "http://www.workerman.net",
+            "keywords": [
+                "communication",
+                "distributed"
+            ],
+            "time": "2017-06-26T14:51:29+00:00"
+        },
         {
             "name": "workerman/phpsocket.io-for-win",
             "version": "v1.1.4",
