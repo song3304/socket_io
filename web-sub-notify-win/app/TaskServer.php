@@ -46,7 +46,7 @@ class TaskServer extends Worker {
     }
 
     protected function initTimer() {
-        Timer::add(3, function () {
+        Timer::add($this->conf['emit_interval'], function () {
             //更新维护数据列表
             $this->updateRecords();
             //推送消息出去

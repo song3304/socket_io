@@ -22,5 +22,6 @@ return array(
         'password' => '123456',
         'dbname' => 'energy',
         'charset' => 'utf8mb4',
-    ]
+    ],
+    'emit_interval'=>3,
 );
