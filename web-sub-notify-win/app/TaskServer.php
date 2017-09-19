@@ -67,10 +67,11 @@ class TaskServer extends Worker {
         foreach ($record as $key => $value) {
             $tmp[$key] = array_values($value);
         }
+        $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
             'room' => $roomId,
-            'data' => $tmp,
+            'data' => $msg,
         );
         return $data;
     }
