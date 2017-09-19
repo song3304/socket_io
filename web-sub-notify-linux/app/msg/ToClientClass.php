@@ -18,7 +18,7 @@ class ToClientClass {
     
     static public function output($uid,$to_uid, $data) {
 //        if (!$json = json_decode($data)) {
-//            return errorMsg::output(ErrorMsg::ERROR, ErrorMsg::ERROR_MSG);
+//            return ErrorMsg::output(ErrorMsg::ERROR, ErrorMsg::ERROR_MSG);
 //        }
         $json = $data;
         

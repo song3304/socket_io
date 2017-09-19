@@ -48,7 +48,7 @@ $(document).ready(function () {
     // 连接后登录
     socket.on('connect', function(){
     	socket.emit('login', uid);
-        socket.emit('register', uid, 2, 1);
+        socket.emit('register', uid, 4, 15);
     });
     // 后端推送来消息时
     socket.on('quoteUpdate', function(data){
