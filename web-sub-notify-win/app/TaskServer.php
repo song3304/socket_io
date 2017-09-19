@@ -122,7 +122,6 @@ class TaskServer extends Worker {
                 //不是买、卖、成交记录
                 continue;
             } else {
-                var_dump($trade_type);
                 $this->records[$product_id][$user_id][$trade_type][$id] = $record;
             }
         }
