@@ -85,8 +85,11 @@ class TaskServer extends Worker {
             // 结构：品类id->撮合id->类型->信息记录id
             foreach ($records as $user_id => $record) {
                 //这一层是记录类型
+                $product_id = explode('_', $product_id)[0];
+                $user_id = explode('_', $user_id)[0];
                 $json = $this->msgData($product_id, $user_id, $record);
                 $this->client_worker->sendToGateway($json);
+                Worker::log(json_encode($json));
                 //发送之后将成交记录删除，即成交记录一直只发最新的
                 unset($this->records[$product_id][$user_id]['order']);
             }
@@ -98,8 +101,8 @@ class TaskServer extends Worker {
         foreach ($new_records as $record) {
             $record['server_timestamp'] = $time;
             //保存  结构：品类id->撮合id->类型->信息记录id
-            $product_id = $record['product_id'];
-            $user_id = $record['user_id'];
+            $product_id = $record['product_id'].'_product';
+            $user_id = $record['user_id'].'_user';
             $trade_type = $record['trade_type'];
             $id = $record['id'];
             switch ($trade_type) {

@@ -66,7 +66,7 @@ class ClientWorker
         else
         {
             // 没有连接上
-            echo '1111111111111111111111111111111111111111';
+            Worker::log("connect to $this->gatewayAddr failed!");
         }
     }
 
@@ -106,7 +106,7 @@ class ClientWorker
         $addr = $this->gatewayAddr;
         if (is_null($this->gatewayConnection))
         {
-            $gateway_connection = new AsyncTcpConnection("text://$addr");
+            $gateway_connection = new AsyncTcpConnection("Text://$addr");
             $gateway_connection->remoteAddress = $addr;
             $gateway_connection->onConnect = array($this, 'onConnectGateway');
             $gateway_connection->onMessage = array($this, 'onGatewayMessage');
