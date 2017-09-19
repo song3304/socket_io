@@ -7,5 +7,7 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Workerman\\' => array($vendorDir . '/workerman/workerman'),
-    'GatewayWorker\\' => array($baseDir . '/src'),
+    'PHPSocketIO\\' => array($vendorDir . '/workerman/phpsocket.io/src'),
+    'GatewayWorker\\' => array($vendorDir . '/workerman/gateway-worker/src'),
+    'Channel\\' => array($vendorDir . '/workerman/channel/src'),
 );

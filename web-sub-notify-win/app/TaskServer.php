@@ -88,7 +88,6 @@ class TaskServer extends Worker {
         $this->timestamp = time();
         
         $new_records = $first_readdb?$this->selectAllRecords():$this->selectAllRecordsAccordingTimestamp($timestamp);
-        print_r($this->db->lastSQL());
         if (empty($new_records)) {
             //没有新数据
             return;

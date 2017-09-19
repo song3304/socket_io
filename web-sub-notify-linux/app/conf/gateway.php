@@ -15,4 +15,12 @@ return array(
         'local_cert' => '', //cert
         'local_pk' => '', //pk
     ),
+    'database' => [
+        'host' => '192.168.0.53',
+        'port' => 3306,
+        'user' => 'root',
+        'password' => '123456',
+        'dbname' => 'energy',
+        'charset' => 'utf8mb4',
+    ]
 );
