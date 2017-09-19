@@ -11,13 +11,9 @@ class ComposerStaticInit500fb98e7a488b3ade70d7ab64cd44ff
         array (
             'Workerman\\' => 10,
         ),
-        'P' => 
+        'G' => 
         array (
-            'PHPSocketIO\\' => 12,
-        ),
-        'C' => 
-        array (
-            'Channel\\' => 8,
+            'GatewayWorker\\' => 14,
         ),
     );
 
@@ -26,13 +22,9 @@ class ComposerStaticInit500fb98e7a488b3ade70d7ab64cd44ff
         array (
             0 => __DIR__ . '/..' . '/workerman/workerman',
         ),
-        'PHPSocketIO\\' => 
+        'GatewayWorker\\' => 
         array (
-            0 => __DIR__ . '/..' . '/workerman/phpsocket.io/src',
-        ),
-        'Channel\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/workerman/channel/src',
+            0 => __DIR__ . '/../..' . '/src',
         ),
     );
 

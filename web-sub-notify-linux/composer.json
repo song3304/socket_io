@@ -1,10 +1,12 @@
 {
-    "name"  : "workerman/web-msg-sender",
-    "type"  : "project",
-    "keywords": ["socket.io"],
+    "name"  : "workerman/gateway-worker",
+    "keywords": ["distributed","communication"],
     "homepage": "http://www.workerman.net",
     "license" : "MIT",
     "require": {
-        "workerman/phpsocket.io" : ">1.0.0"
+        "workerman/workerman" : ">=3.1.8"
+    },
+    "autoload": {
+        "psr-4": {"GatewayWorker\\": "./src"}
     }
 }
