@@ -89,7 +89,6 @@ class TaskServer extends Worker {
                 $user_id = explode('_', $user_id)[0];
                 $json = $this->msgData($product_id, $user_id, $record);
                 $this->client_worker->sendToGateway($json);
-                Worker::log(json_encode($json));
                 //发送之后将成交记录删除，即成交记录一直只发最新的
                 unset($this->records[$product_id][$user_id]['order']);
             }

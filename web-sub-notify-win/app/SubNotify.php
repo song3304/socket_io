@@ -370,7 +370,6 @@ class SubNotify
                 $msg = QuoteClass::output($product_id, $match_id, $data);
                 //通知该组的客户端
                 $this->sendToGroup($room, $msg);
-                Worker::log($msg);
             });
             
             // 当客户端要发给其他客户端的时候
