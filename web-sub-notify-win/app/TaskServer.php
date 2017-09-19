@@ -13,6 +13,7 @@ use Workerman\Lib\Timer;
 use App\ClientWorker;
 use GatewayWorker\Lib\DbConnection;
 use App\msg\QuoteClass;
+use App\MsgIds;
 /**
  * Description of TaskServer
  * 定期从数据库中读取当前数据，并实时上报给消息中心
