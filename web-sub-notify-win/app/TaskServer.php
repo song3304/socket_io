@@ -88,7 +88,6 @@ class TaskServer extends Worker {
                 $product_id = explode('_', $product_id)[0];
                 $user_id = explode('_', $user_id)[0];
                 $json = $this->msgData($product_id, $user_id, $record);
-                Worker::log(json_encode($json));
                 $this->client_worker->sendToGateway($json);
                 //发送之后将成交记录删除，即成交记录一直只发最新的
                 unset($this->records[$product_id][$user_id]['order']);
@@ -182,19 +181,30 @@ class TaskServer extends Worker {
         $this->initTimer();
     }
 
-    /*
-     * 启动server
+
+    /**
+     * 构造函数
+     *
+     * @param string $socket_name
+     * @param array  $context_option
      */
-
-    public function startServer() {
-        $this->onWorkerStart = array($this, 'workerStart');
-    }
-
-    public function __construct() {
-        parent::__construct();
+    public function __construct($socket_name = '', $context_option = array())
+    {
+        parent::__construct($socket_name, $context_option);
+        $backrace                = debug_backtrace();
+        $this->_autoloadRootPath = dirname($backrace[0]['file']);
         //加载配置
         $conf = include __DIR__ . '/conf/gateway.php';
         $this->conf = $conf;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function run()
+    {
+        $this->onWorkerStart = array($this, 'workerStart');
+        parent::run();
     }
 
 }
