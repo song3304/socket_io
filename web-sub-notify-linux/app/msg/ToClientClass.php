@@ -25,12 +25,12 @@ class ToClientClass {
         //todo: 根据业务需要检测相关数据
         
         //组装返回
-        return json_encode(array(
+        return array(
             'code' => 0,
             'client'=>$uid,
             'to_client'=>$to_uid,
             'data'=>$json,
             'event_type'=>'client_call_me',    //推客户端的事件类型
-        ));
+        );
     }
 }

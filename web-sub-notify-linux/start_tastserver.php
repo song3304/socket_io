@@ -6,7 +6,6 @@ include __DIR__ . '/vendor/autoload.php';
 include __DIR__ . '/autoload.php';
 
 $server = new TaskServer();
-$server->startServer();
 
 if(!defined('GLOBAL_START'))
 {

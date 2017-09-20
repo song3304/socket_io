@@ -18,6 +18,6 @@ class ErrorMsg {
     const ERROR_MSG = '消息格式错误';
 
     static public function output($code, $msg) {
-        return json_encode(array('code'=>$code, 'msg'=>$msg));
+        return array('code'=>$code, 'msg'=>$msg);
     }
 }

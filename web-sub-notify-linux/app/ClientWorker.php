@@ -11,6 +11,7 @@ use Workerman\Worker;
 use Workerman\Connection\TcpConnection;
 use Workerman\Connection\AsyncTcpConnection;
 use Workerman\Lib\Timer;
+use Workerman\Protocols\Text;
 
 /**
  * Description of ClientWorker
@@ -58,7 +59,13 @@ class ClientWorker
 
     public function sendToGateway($msg)
     {
-        $msg = is_array($msg) ? json_encode($msg) : $msg;
+        if (!is_string($msg)) {
+            $msg = json_encode($msg);
+        }
+        if ($msg === FALSE) {
+            //错误了
+            return;
+        }
         if (!is_null($this->gatewayConnection))
         {
             $this->gatewayConnection->send($msg);
