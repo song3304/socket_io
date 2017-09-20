@@ -96,9 +96,7 @@ class TaskServer extends Worker {
     }
 
     private function storeRecords($new_records) {
-        $time = time();
         foreach ($new_records as $record) {
-            $record['server_timestamp'] = $time;
             //保存  结构：品类id->撮合id->类型->信息记录id
             $product_id = $record['product_id'].'_product';
             $user_id = $record['user_id'].'_user';
