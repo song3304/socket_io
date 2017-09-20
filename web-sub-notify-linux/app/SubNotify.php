@@ -219,7 +219,7 @@ class SubNotify
             return;
         }
         // 将消息发给相应的组
-        $data = json_decode($json->data);
+        $data = $json->data;
         $event_type = isset($data->event_type) ? (string)$data->event_type : '';
         if (empty($event_type)) {
             //消息类型为空

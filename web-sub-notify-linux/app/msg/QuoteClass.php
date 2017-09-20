@@ -35,14 +35,14 @@ class QuoteClass {
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
             ));
         } else {
-            return json_encode(array(
+            return array(
                 'code' => 0,
                 'product_id' => $product_id,
                 'match_id' => $match_id,
                 'data' => $json,
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
                 'passback' => '1',
-            ));
+            );
         }
     }
 
