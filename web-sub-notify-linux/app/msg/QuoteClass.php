@@ -33,7 +33,6 @@ class QuoteClass {
                 'match_id' => $match_id,
                 'data' => $json,
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
-                'server_timestamp'=>time(),
             );
         } else {
             return array(
@@ -43,7 +42,6 @@ class QuoteClass {
                 'data' => $json,
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
                 'passback' => '1',
-                'server_timestamp'=>time(),
             );
         }
     }
