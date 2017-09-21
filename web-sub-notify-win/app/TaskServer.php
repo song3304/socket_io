@@ -48,11 +48,39 @@ class TaskServer extends Worker {
 
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
-            //更新维护数据列表
-            $this->updateRecords();
-            //推送消息出去
-            $this->emit();
+            //更新维护数据列表, 每60秒都会推送一次
+            if ($this->updateRecords($this->timestamp === 0 ? TRUE : FALSE) || date('s', $this->timestamp) === '00') {
+                //有更新，实时推送消息出去
+                $this->emit();
+            }
         });
+    }
+
+    /*
+     * 根据字段，查找最大值、最小值、平均值、当前时间戳
+     */
+
+    private function arraySummary(array $arr, $field = 'trade_price') {
+        $max = 0;
+        $min = 0;
+        $average = 0;
+        $sum = 0;
+        $first = TRUE;
+        foreach ($arr as $value) {
+            $field_value = isset($value[$field]) ? intval($value[$field]) : 0;
+            if ($first) {
+                $first = FALSE;
+                $sum = $max = $min = $field_value;
+                continue;
+            } else {
+                $max = $max > $field_value ? $max : $field_value;
+                $min = $min < $field_value ? $min : $field_value;
+                $sum += $field_value;
+            }
+        }
+        $num = count($arr);
+        $average = $num > 0 ? $sum / $num : 0;
+        return [$max, $min, $average, $this->timestamp];
     }
 
     /*
@@ -66,6 +94,7 @@ class TaskServer extends Worker {
         $tmp = [];
         foreach ($record as $key => $value) {
             $tmp[$key] = array_values($value);
+            $tmp[$key . '_average'] = $this->arraySummary($value);
         }
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
@@ -96,12 +125,10 @@ class TaskServer extends Worker {
     }
 
     private function storeRecords($new_records) {
-        $time = time();
         foreach ($new_records as $record) {
-            $record['server_timestamp'] = $time;
             //保存  结构：品类id->撮合id->类型->信息记录id
-            $product_id = $record['product_id'].'_product';
-            $user_id = $record['user_id'].'_user';
+            $product_id = $record['product_id'] . '_product';
+            $user_id = $record['user_id'] . '_user';
             $trade_type = $record['trade_type'];
             $id = $record['id'];
             switch ($trade_type) {
@@ -117,7 +144,7 @@ class TaskServer extends Worker {
                 default:
                     break;
             }
-            
+
             if (!empty($record['delete_time']) && isset($this->records[$product_id][$user_id][$trade_type][$id])) {
                 //删除了
                 unset($this->records[$product_id][$user_id][$trade_type][$id]);
@@ -132,6 +159,7 @@ class TaskServer extends Worker {
 
     /*
      * 将记录保存在内存中
+     * @return TRUE:有新数据更新 FALSE:没有新数据
      */
 
     protected function updateRecords($first_readdb = false /* 首次读取数据 */) {
@@ -142,9 +170,10 @@ class TaskServer extends Worker {
         $new_records = $first_readdb ? $this->selectAllRecords() : $this->selectAllRecordsAccordingTimestamp($timestamp);
         if (empty($new_records)) {
             //没有新数据
-            return;
+            return FALSE;
         } else {
             $this->storeRecords($new_records);
+            return TRUE;
         }
     }
 
@@ -154,7 +183,10 @@ class TaskServer extends Worker {
 
     private function selectAllRecordsAccordingTimestamp($timestamp) {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
-        return $this->db->query("select * from en_product_offer where update_time>=$timestamp and delete_time>=$timestamp");
+        $time = time();
+        return $this->db->query("select * from en_product_offer where "
+                . "(UNIX_TIMESTAMP(update_time)>=$timestamp and UNIX_TIMESTAMP(update_time)<=$time) or "
+                . "UNIX_TIMESTAMP(delete_time)>=$timestamp and UNIX_TIMESTAMP(delete_time)<=$time");
     }
 
     /*
@@ -177,10 +209,8 @@ class TaskServer extends Worker {
     public function workerStart() {
         $this->initClientWorker();
         $this->initDb();
-        $this->updateRecords(TRUE);
         $this->initTimer();
     }
-
 
     /**
      * 构造函数
@@ -188,10 +218,9 @@ class TaskServer extends Worker {
      * @param string $socket_name
      * @param array  $context_option
      */
-    public function __construct($socket_name = '', $context_option = array())
-    {
+    public function __construct($socket_name = '', $context_option = array()) {
         parent::__construct($socket_name, $context_option);
-        $backrace                = debug_backtrace();
+        $backrace = debug_backtrace();
         $this->_autoloadRootPath = dirname($backrace[0]['file']);
         //加载配置
         $conf = include __DIR__ . '/conf/gateway.php';
@@ -201,8 +230,7 @@ class TaskServer extends Worker {
     /**
      * {@inheritdoc}
      */
-    public function run()
-    {
+    public function run() {
         $this->onWorkerStart = array($this, 'workerStart');
         parent::run();
     }

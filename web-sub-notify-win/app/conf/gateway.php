@@ -6,7 +6,7 @@
  * and open the template in the editor.
  */
 return array(
-    'gateway_addr' => '127.0.0.1:8282',
+    'gateway_addr' => '192.168.0.53:8282',
     'socket_port' => 2120,
     'http_port' => 2121,
     'system_status' => TRUE,
@@ -23,5 +23,5 @@ return array(
         'dbname' => 'energy',
         'charset' => 'utf8mb4',
     ],
-    'emit_interval'=>3,
+    'emit_interval'=>2,
 );
