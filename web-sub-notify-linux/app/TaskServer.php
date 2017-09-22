@@ -49,10 +49,15 @@ class TaskServer extends Worker {
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
             //更新维护数据列表, 每60秒都会推送一次
-            if ($this->updateRecords($this->timestamp === 0 ? TRUE : FALSE) || date('s', $this->timestamp) === '00') {
+            if ($this->updateRecords($this->timestamp === 0 ? TRUE : FALSE)) {
                 //有更新，实时推送消息出去
                 $this->emit();
             }
+        });
+        Timer::add(1, function () {
+            //更新维护数据列表, 到整点都会推送一次
+            if (date('s') === '00')
+                $this->emit();
         });
     }
 
@@ -183,10 +188,14 @@ class TaskServer extends Worker {
 
     private function selectAllRecordsAccordingTimestamp($timestamp) {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
-        $time = time();
+        /*
+         *   延迟5秒进行读取
+         * 原因：数据通过nginx+php到数据库时间会滞后
+         */
+        $timestamp -= 5;
         return $this->db->query("select * from en_product_offer where "
-                . "(UNIX_TIMESTAMP(update_time)>=$timestamp and UNIX_TIMESTAMP(update_time)<=$time) or "
-                . "UNIX_TIMESTAMP(delete_time)>=$timestamp and UNIX_TIMESTAMP(delete_time)<=$time");
+                . "UNIX_TIMESTAMP(update_time)>=$timestamp  or "
+                . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
     }
 
     /*
