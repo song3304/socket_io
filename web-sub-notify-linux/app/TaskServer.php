@@ -49,9 +49,10 @@ class TaskServer extends Worker {
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
             //更新维护数据列表, 每60秒都会推送一次
-            if ($this->updateRecords($this->timestamp === 0 ? TRUE : FALSE)) {
+            $flag = $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
+            if (!empty($flag)) {
                 //有更新，实时推送消息出去
-                $this->emit();
+                $this->emit($flag);
             }
         });
         Timer::add(1, function () {
@@ -114,10 +115,14 @@ class TaskServer extends Worker {
      * 将数据推送出去
      */
 
-    protected function emit() {
+    protected function emit($except = array()) {
         foreach ($this->records as $product_id => $records) {
             // 结构：品类id->撮合id->类型->信息记录id
             foreach ($records as $user_id => $record) {
+                if (!empty($except) && !in_array($product_id.'_'.$user_id, $except)) {
+                    //不需要推送
+                    continue;
+                }
                 //这一层是记录类型
                 $product_id = explode('_', $product_id)[0];
                 $user_id = explode('_', $user_id)[0];
@@ -129,7 +134,9 @@ class TaskServer extends Worker {
         }
     }
 
+    //返回有更新的信息数组
     private function storeRecords($new_records) {
+        $update_arr = [];
         foreach ($new_records as $record) {
             //保存  结构：品类id->撮合id->类型->信息记录id
             $product_id = $record['product_id'] . '_product';
@@ -153,13 +160,16 @@ class TaskServer extends Worker {
             if (!empty($record['delete_time']) && isset($this->records[$product_id][$user_id][$trade_type][$id])) {
                 //删除了
                 unset($this->records[$product_id][$user_id][$trade_type][$id]);
+                $update_arr[] = $product_id.'_'.$user_id;
             } else if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
                 //不是买、卖、成交记录
                 continue;
             } else {
                 $this->records[$product_id][$user_id][$trade_type][$id] = $record;
+                $update_arr[] = $product_id.'_'.$user_id;
             }
         }
+        return array_unique($update_arr);
     }
 
     /*
@@ -177,8 +187,7 @@ class TaskServer extends Worker {
             //没有新数据
             return FALSE;
         } else {
-            $this->storeRecords($new_records);
-            return TRUE;
+            return $this->storeRecords($new_records);
         }
     }
 
