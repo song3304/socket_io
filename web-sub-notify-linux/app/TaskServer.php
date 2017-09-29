@@ -45,20 +45,35 @@ class TaskServer extends Worker {
         $db = new DbConnection($conf['host'], $conf['port'], $conf['user'], $conf['password'], $conf['dbname'], $conf['charset']);
         $this->db = $db;
     }
+    
+    /*
+     * 9~18点之间服务，之后不推送实时
+     */
+    private function isActive($timestamp) {
+        $hour = intval(date('H', $timestamp));
+        return $hour >= 9 && $hour < 18;
+    }
 
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
+            if (!$this->isActive($this->timestamp))
+                return;
             //更新维护数据列表, 每60秒都会推送一次
             $flag = $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
             if (!empty($flag)) {
                 //有更新，实时推送消息出去
                 $this->emit($flag);
+                $this->emit_summary();
             }
         });
         Timer::add(1, function () {
+            if (!$this->isActive($this->timestamp))
+                return;
             //更新维护数据列表, 到整点都会推送一次
-            if (date('s') === '00')
+            if (date('s') === '00') {
                 $this->emit();
+                $this->emit_summary();
+            }
         });
     }
 
@@ -110,6 +125,57 @@ class TaskServer extends Worker {
         );
         return $data;
     }
+    
+    private function toolsSummary($array) {
+        $tmp = [0,0,0,$this->timestamp];
+        foreach ($array as $value) {
+            $tmp[0] += $value['data'][0]*$value['count'];
+            $tmp[1] += $value['data'][1]*$value['count'];
+            $tmp[2] += $value['data'][2]*$value['count'];
+        }
+        return $tmp;
+    }
+
+    private function msgDataAll($product_id, $user_id, $records) {
+        $sell_all = $buy_all = $order_all = [];
+        foreach ($records as $record) {
+            //这一层是记录类型
+            if (!empty($record['sell'])) {
+                $sell_all[] = ['data'=>$this->arraySummary($record['sell']),'count'=>count($record['sell'])];
+            }
+            if (!empty($record['buy'])) {
+                $buy_all[] = ['data'=>$this->arraySummary($record['buy']),'count'=>count($record['buy'])];
+            }
+            if (!empty($record['order'])) {
+                $order_all[] = ['data'=>$this->arraySummary($record['order']),'count'=>count($record['order'])];
+            }
+        }
+        $tmp = ['sell_average'=>$this->toolsSummary($sell_all), 
+                'buy_average'=>$this->toolsSummary($buy_all),
+                'order_average'=>$this->toolsSummary($order_all),
+                ];
+        $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
+        $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
+            'room' => $roomId,
+            'data' => $msg,
+        );
+        return $data;
+    }
+
+    /*
+     * 每一个品类有一个大盘数据，实时推出去
+     */
+
+    protected function emit_summary() {
+        foreach ($this->records as $product_id => $records) {
+            // 结构：品类id->撮合id->类型->信息记录id
+            $product_id = explode('_', $product_id)[0];
+            $json = $this->msgDataAll($product_id, 0, $records);
+            $this->client_worker->sendToGateway($json);
+        }
+    }
 
     /*
      * 将数据推送出去
@@ -119,7 +185,7 @@ class TaskServer extends Worker {
         foreach ($this->records as $product_id => $records) {
             // 结构：品类id->撮合id->类型->信息记录id
             foreach ($records as $user_id => $record) {
-                if (!empty($except) && !in_array($product_id.'_'.$user_id, $except)) {
+                if (!empty($except) && !in_array($product_id . '_' . $user_id, $except)) {
                     //不需要推送
                     continue;
                 }
@@ -160,13 +226,13 @@ class TaskServer extends Worker {
             if (!empty($record['delete_time']) && isset($this->records[$product_id][$user_id][$trade_type][$id])) {
                 //删除了
                 unset($this->records[$product_id][$user_id][$trade_type][$id]);
-                $update_arr[] = $product_id.'_'.$user_id;
+                $update_arr[] = $product_id . '_' . $user_id;
             } else if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
                 //不是买、卖、成交记录
                 continue;
             } else {
                 $this->records[$product_id][$user_id][$trade_type][$id] = $record;
-                $update_arr[] = $product_id.'_'.$user_id;
+                $update_arr[] = $product_id . '_' . $user_id;
             }
         }
         return array_unique($update_arr);
@@ -203,8 +269,8 @@ class TaskServer extends Worker {
          */
         $timestamp -= 5;
         return $this->db->query("select * from en_product_offer where "
-                . "UNIX_TIMESTAMP(update_time)>=$timestamp  or "
-                . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+                        . "UNIX_TIMESTAMP(update_time)>=$timestamp  or "
+                        . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
     }
 
     /*
@@ -213,7 +279,7 @@ class TaskServer extends Worker {
 
     private function selectAllRecords() {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
-        return $this->db->query("select * from en_product_offer where ISNULL(delete_time)");
+        return $this->db->query("select * from en_product_offer where delete_time is null");
     }
 
     /*
