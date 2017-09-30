@@ -49,14 +49,15 @@ class TaskServer extends Worker {
     /*
      * 9~18点之间服务，之后不推送实时
      */
-    private function isActive($timestamp) {
+    private function isActive() {
+        $timestamp = $this->timestamp === 0 ? time(): $this->timestamp;
         $hour = intval(date('H', $timestamp));
         return $hour >= 9 && $hour < 18;
     }
 
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
-            if (!$this->isActive($this->timestamp))
+            if (!$this->isActive())
                 return;
             //更新维护数据列表, 每60秒都会推送一次
             $flag = $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
@@ -67,7 +68,7 @@ class TaskServer extends Worker {
             }
         });
         Timer::add(1, function () {
-            if (!$this->isActive($this->timestamp))
+            if (!$this->isActive())
                 return;
             //更新维护数据列表, 到整点都会推送一次
             if (date('s') === '00') {
@@ -101,7 +102,7 @@ class TaskServer extends Worker {
         }
         $num = count($arr);
         $average = $num > 0 ? $sum / $num : 0;
-        return [$max, $min, $average, $this->timestamp];
+        return [intval($max), intval($min), intval($average), $this->timestamp];
     }
 
     /*
@@ -128,10 +129,16 @@ class TaskServer extends Worker {
     
     private function toolsSummary($array) {
         $tmp = [0,0,0,$this->timestamp];
+        $count = 0;
         foreach ($array as $value) {
-            $tmp[0] += $value['data'][0]*$value['count'];
-            $tmp[1] += $value['data'][1]*$value['count'];
-            $tmp[2] += $value['data'][2]*$value['count'];
+            if ($count === 0) {
+                //第一次赋值给最小值
+                $tmp[1] = $value['data'][1];
+            }
+            $count += $value['count'];
+            $tmp[0] = $value['data'][0] > $tmp[0] ? $value['data'][0] : $tmp[0];
+            $tmp[1] = $value['data'][1] < $tmp[1] ? $value['data'][1] : $tmp[1];
+            $tmp[2] += intval($value['data'][2]*$value['count']/$count);
         }
         return $tmp;
     }
