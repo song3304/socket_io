@@ -45,12 +45,13 @@ class TaskServer extends Worker {
         $db = new DbConnection($conf['host'], $conf['port'], $conf['user'], $conf['password'], $conf['dbname'], $conf['charset']);
         $this->db = $db;
     }
-    
+
     /*
      * 9~18点之间服务，之后不推送实时
      */
+
     private function isActive() {
-        $timestamp = $this->timestamp === 0 ? time(): $this->timestamp;
+        $timestamp = $this->timestamp === 0 ? time() : $this->timestamp;
         $hour = intval(date('H', $timestamp));
         return $hour >= 9 && $hour < 18;
     }
@@ -60,6 +61,10 @@ class TaskServer extends Worker {
             if (!$this->isActive())
                 return;
             //更新维护数据列表, 每60秒都会推送一次
+            if ((int)date('s') > 59 - $this->conf['emit_interval']) {
+                //整点会推送，所以这次不做推送了
+                return;
+            }
             $flag = $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
             if (!empty($flag)) {
                 //有更新，实时推送消息出去
@@ -71,7 +76,8 @@ class TaskServer extends Worker {
             if (!$this->isActive())
                 return;
             //更新维护数据列表, 到整点都会推送一次
-            if (date('s') === '00') {
+            if (date('s') === '59') {
+                $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
                 $this->emit();
                 $this->emit_summary();
             }
@@ -126,9 +132,9 @@ class TaskServer extends Worker {
         );
         return $data;
     }
-    
+
     private function toolsSummary($array) {
-        $tmp = [0,0,0,$this->timestamp];
+        $tmp = [0, 0, 0, $this->timestamp];
         $count = 0;
         foreach ($array as $value) {
             if ($count === 0) {
@@ -138,7 +144,7 @@ class TaskServer extends Worker {
             $count += $value['count'];
             $tmp[0] = $value['data'][0] > $tmp[0] ? $value['data'][0] : $tmp[0];
             $tmp[1] = $value['data'][1] < $tmp[1] ? $value['data'][1] : $tmp[1];
-            $tmp[2] += intval($value['data'][2]*$value['count']/$count);
+            $tmp[2] += intval($value['data'][2] * $value['count'] / $count);
         }
         return $tmp;
     }
@@ -148,19 +154,19 @@ class TaskServer extends Worker {
         foreach ($records as $record) {
             //这一层是记录类型
             if (!empty($record['sell'])) {
-                $sell_all[] = ['data'=>$this->arraySummary($record['sell']),'count'=>count($record['sell'])];
+                $sell_all[] = ['data' => $this->arraySummary($record['sell']), 'count' => count($record['sell'])];
             }
             if (!empty($record['buy'])) {
-                $buy_all[] = ['data'=>$this->arraySummary($record['buy']),'count'=>count($record['buy'])];
+                $buy_all[] = ['data' => $this->arraySummary($record['buy']), 'count' => count($record['buy'])];
             }
             if (!empty($record['order'])) {
-                $order_all[] = ['data'=>$this->arraySummary($record['order']),'count'=>count($record['order'])];
+                $order_all[] = ['data' => $this->arraySummary($record['order']), 'count' => count($record['order'])];
             }
         }
-        $tmp = ['sell_average'=>$this->toolsSummary($sell_all), 
-                'buy_average'=>$this->toolsSummary($buy_all),
-                'order_average'=>$this->toolsSummary($order_all),
-                ];
+        $tmp = ['sell_average' => $this->toolsSummary($sell_all),
+            'buy_average' => $this->toolsSummary($buy_all),
+            'order_average' => $this->toolsSummary($order_all),
+        ];
         $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
@@ -215,6 +221,7 @@ class TaskServer extends Worker {
             $product_id = $record['product_id'] . '_product';
             $user_id = $record['user_id'] . '_user';
             $trade_type = $record['trade_type'];
+
             $id = $record['id'];
             switch ($trade_type) {
                 case -1:
@@ -229,12 +236,16 @@ class TaskServer extends Worker {
                 default:
                     break;
             }
-
-            if (!empty($record['delete_time']) && isset($this->records[$product_id][$user_id][$trade_type][$id])) {
-                //删除了
-                unset($this->records[$product_id][$user_id][$trade_type][$id]);
-                $update_arr[] = $product_id . '_' . $user_id;
-            } else if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
+            //有新数据，则将原来的60秒之前的数据
+            if (isset($this->records[$product_id][$user_id][$trade_type]) && is_array($this->records[$product_id][$user_id][$trade_type])) {
+                foreach ($this->records[$product_id][$user_id][$trade_type] as $key => $r) {
+                    if (strtotime($r['update_time']) < $this->timestamp - 60 || !empty($r['delete_time'])) {
+                        unset($this->records[$product_id][$user_id][$trade_type][$key]);
+                    }
+                }
+            }
+            //直接将新数据复制过来
+            if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
                 //不是买、卖、成交记录
                 continue;
             } else {
@@ -274,10 +285,9 @@ class TaskServer extends Worker {
          *   延迟5秒进行读取
          * 原因：数据通过nginx+php到数据库时间会滞后
          */
-        $timestamp -= 5;
+        $timestamp = $timestamp - $this->conf['emit_interval'];
         return $this->db->query("select * from en_product_offer where "
-                        . "UNIX_TIMESTAMP(update_time)>=$timestamp  or "
-                        . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+                        . "UNIX_TIMESTAMP(update_time)>=$timestamp");
     }
 
     /*
