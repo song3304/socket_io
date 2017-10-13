@@ -51,7 +51,7 @@ class TaskServer extends Worker {
      */
 
     private function isActive() {
-        $timestamp = $this->timestamp === 0 ? time() : $this->timestamp;
+        $timestamp = time();
         $hour = intval(date('H', $timestamp));
         return $hour >= 9 && $hour < 18;
     }
@@ -81,6 +81,11 @@ class TaskServer extends Worker {
                 $this->emit();
                 $this->emit_summary();
             }
+            if (date('s') === '05') {
+                $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
+                $this->emit();
+                $this->emit_summary();
+            }
         });
     }
 
@@ -95,7 +100,7 @@ class TaskServer extends Worker {
         $sum = 0;
         $first = TRUE;
         foreach ($arr as $value) {
-            $field_value = isset($value[$field]) ? intval($value[$field]) : 0;
+            $field_value = isset($value[$field]) ? floatval($value[$field]) : 0;
             if ($first) {
                 $first = FALSE;
                 $sum = $max = $min = $field_value;
@@ -108,7 +113,7 @@ class TaskServer extends Worker {
         }
         $num = count($arr);
         $average = $num > 0 ? $sum / $num : 0;
-        return [intval($max), intval($min), intval($average), $this->timestamp];
+        return [floatval($max), floatval($min), floatval($average), $this->timestamp];
     }
 
     /*
@@ -144,7 +149,7 @@ class TaskServer extends Worker {
             $count += $value['count'];
             $tmp[0] = $value['data'][0] > $tmp[0] ? $value['data'][0] : $tmp[0];
             $tmp[1] = $value['data'][1] < $tmp[1] ? $value['data'][1] : $tmp[1];
-            $tmp[2] += intval($value['data'][2] * $value['count'] / $count);
+            $tmp[2] += floatval($value['data'][2] * $value['count'] / $count);
         }
         return $tmp;
     }
@@ -261,12 +266,13 @@ class TaskServer extends Worker {
      * @return TRUE:有新数据更新 FALSE:没有新数据
      */
 
-    protected function updateRecords($first_readdb = false /* 首次读取数据 */) {
+    protected function updateRecords($first_readdb = false/* 首次读取数据 */) {
         //将当前时间保存下来
         $timestamp = $this->timestamp;
         $this->timestamp = time();
 
         $new_records = $first_readdb ? $this->selectAllRecords() : $this->selectAllRecordsAccordingTimestamp($timestamp);
+        
         if (empty($new_records)) {
             //没有新数据
             return FALSE;
@@ -274,6 +280,7 @@ class TaskServer extends Worker {
             return $this->storeRecords($new_records);
         }
     }
+    
 
     /*
      * 查找某一时刻之后更新的所有记录
@@ -286,8 +293,18 @@ class TaskServer extends Worker {
          * 原因：数据通过nginx+php到数据库时间会滞后
          */
         $timestamp = $timestamp - $this->conf['emit_interval'];
-        return $this->db->query("select * from en_product_offer where "
-                        . "UNIX_TIMESTAMP(update_time)>=$timestamp");
+        $sell_buy = $this->db->query("select * from en_product_real_times where "
+                        . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
+                        . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+        $order = $this->db->query("select * from en_transactions where "
+                . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
+                . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+        foreach ($order as &$value) {
+            $value['trade_type'] = 2;   //表明是成交记录
+            $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
+        }
+        $arr = [];$arr = array_merge($arr,$sell_buy);$arr = array_merge($arr,$order);
+        return $arr;
     }
 
     /*
@@ -296,7 +313,14 @@ class TaskServer extends Worker {
 
     private function selectAllRecords() {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
-        return $this->db->query("select * from en_product_offer where delete_time is null");
+        $sell_buy = $this->db->query("select * from en_product_real_times where delete_time is null");
+        $order = $this->db->query("select * from en_transactions where delete_time is null");
+        foreach ($order as &$value) {
+            $value['trade_type'] = 2;   //表明是成交记录
+            $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
+        }
+        $arr = [];$arr = array_merge($arr,$sell_buy);$arr = array_merge($arr,$order);
+        return $arr;
     }
 
     /*
