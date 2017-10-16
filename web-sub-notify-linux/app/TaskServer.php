@@ -299,6 +299,48 @@ class TaskServer extends Worker {
         $order = $this->db->query("select * from en_transactions where "
                 . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
                 . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+        
+        foreach ($sell_buy as &$value){
+            $value['product']['name'] = $this->db->single("select name from en_products where id='".$value['product_id']."'");
+            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='".$value['trader_id']."'");
+            $value['stock']['name'] = $this->db->single("select name from en_storages where id='".$value['stock_id']."'");
+            
+            $type_tag = '';
+            switch ($value['trade_type'])
+            {
+                case static::buy: $type_tag = "买";break;
+                case static::sell:$type_tag = "卖";break;
+                case static::deal:$type_tag = "成交";break;
+                default: $type_tag = "未知";
+            }
+            $value['trader_type_tag'] = $type_tag;
+            
+            $delivery_tag = '';
+            switch ($value['delivery_type'])
+            {
+                case 0:
+                    $delivery_tag = '先货后款';break;
+                case 1:
+                    $delivery_tag = '先款后货';break;
+                default:
+                    $delivery_tag = '未知';
+            }
+            $value['delivery_tag'] = $delivery_tag;
+            
+            $withdraw_type_tag = '';
+            switch ($value['withdraw_type'])
+            {
+                case 0:
+                    $withdraw_type_tag = '电汇';break;
+                case 1:
+                    $withdraw_type_tag = '票汇';break;
+                case 2:
+                    $withdraw_type_tag = '信汇';break;
+                default:
+                    $withdraw_type_tag = '未知';
+            }
+            $value['withdraw_tag'] = $withdraw_type_tag;
+        }
         foreach ($order as &$value) {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
@@ -315,6 +357,47 @@ class TaskServer extends Worker {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
         $sell_buy = $this->db->query("select * from en_product_real_times where delete_time is null");
         $order = $this->db->query("select * from en_transactions where delete_time is null");
+        foreach ($sell_buy as &$value){
+            $value['product']['name'] = $this->db->single("select name from en_products where id='".$value['product_id']."'");
+            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='".$value['trader_id']."'");
+            $value['stock']['name'] = $this->db->single("select name from en_storages where id='".$value['stock_id']."'");
+            
+            $type_tag = '';
+            switch ($value['trade_type'])
+            {
+                case static::buy: $type_tag = "买";break;
+                case static::sell:$type_tag = "卖";break;
+                case static::deal:$type_tag = "成交";break;
+                default: $type_tag = "未知";
+            }
+            $value['trader_type_tag'] = $type_tag;
+            
+            $delivery_tag = '';
+            switch ($value['delivery_type'])
+            {
+                case 0:
+                    $delivery_tag = '先货后款';break;
+                case 1:
+                    $delivery_tag = '先款后货';break;
+                default:
+                    $delivery_tag = '未知';
+            }
+            $value['delivery_tag'] = $delivery_tag;
+            
+            $withdraw_type_tag = '';
+            switch ($value['withdraw_type'])
+            {
+                case 0:
+                    $withdraw_type_tag = '电汇';break;
+                case 1:
+                    $withdraw_type_tag = '票汇';break;
+                case 2:
+                    $withdraw_type_tag = '信汇';break;
+                default:
+                    $withdraw_type_tag = '未知';
+            }
+            $value['withdraw_tag'] = $withdraw_type_tag;
+        }
         foreach ($order as &$value) {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
