@@ -100,7 +100,7 @@ class TaskServer extends Worker {
         $sum = 0;
         $first = TRUE;
         foreach ($arr as $value) {
-            $field_value = isset($value[$field]) ? floatval($value[$field]) : 0;
+            $field_value = isset($value[$field]) ? round(floatval($value[$field]), 2) : 0;
             if ($first) {
                 $first = FALSE;
                 $sum = $max = $min = $field_value;
@@ -113,7 +113,7 @@ class TaskServer extends Worker {
         }
         $num = count($arr);
         $average = $num > 0 ? $sum / $num : 0;
-        return [floatval($max), floatval($min), floatval($average), $this->timestamp];
+        return [round(floatval($max), 2), round(floatval($min), 2), round(floatval($average), 2), $this->timestamp];
     }
 
     /*
@@ -149,7 +149,7 @@ class TaskServer extends Worker {
             $count += $value['count'];
             $tmp[0] = $value['data'][0] > $tmp[0] ? $value['data'][0] : $tmp[0];
             $tmp[1] = $value['data'][1] < $tmp[1] ? $value['data'][1] : $tmp[1];
-            $tmp[2] += floatval($value['data'][2] * $value['count'] / $count);
+            $tmp[2] += round(floatval($value['data'][2] * $value['count'] / $count), 2);
         }
         return $tmp;
     }
