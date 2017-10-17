@@ -23,6 +23,9 @@ use App\MsgIds;
  */
 class TaskServer extends Worker {
 
+    const buy=1;
+    const sell=-1;
+    const deal=2;
     //与服务通信客户端
     protected $client_worker = null;
     //数据库
