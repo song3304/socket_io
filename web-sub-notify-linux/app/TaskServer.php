@@ -72,7 +72,7 @@ class TaskServer extends Worker {
                 return;
             }
             //更新维护数据列表, 每60秒都会推送一次
-            if ((int)date('s') > 59 - $this->conf['emit_interval']) {
+            if (((int)date('s') > 59 - $this->conf['emit_interval']) || ((int)date('s') >= 5 - $this->conf['emit_interval'] && (int)date('s') <= 5) ){
                 //整点会推送，所以这次不做推送了
                 return;
             }
@@ -143,6 +143,7 @@ class TaskServer extends Worker {
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
+        
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
@@ -168,25 +169,14 @@ class TaskServer extends Worker {
         return $tmp;
     }
 
-    private function msgDataAll($product_id, $user_id, $records) {
-        $sell_all = $buy_all = $order_all = [];
-        foreach ($records as $record) {
-            //这一层是记录类型
-            if (!empty($record['sell'])) {
-                $sell_all[] = ['data' => $this->arraySummary($record['sell']), 'count' => count($record['sell'])];
-            }
-            if (!empty($record['buy'])) {
-                $buy_all[] = ['data' => $this->arraySummary($record['buy']), 'count' => count($record['buy'])];
-            }
-            if (!empty($record['order'])) {
-                $order_all[] = ['data' => $this->arraySummary($record['order']), 'count' => count($record['order'])];
-            }
-        }
-        $tmp = ['sell_average' => $this->toolsSummary($sell_all),
-            'buy_average' => $this->toolsSummary($buy_all),
-            'order_average' => $this->toolsSummary($order_all),
-        ];
+    private function msgDataAll($product_id, $user_id, $record) {
         $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
+        //将array中的key去掉
+        $tmp = [];
+        foreach ($record as $key => $value) {
+            $tmp[$key] = array_values($value);
+            $tmp[$key . '_average'] = $this->arraySummary($value);
+        }
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
@@ -202,10 +192,26 @@ class TaskServer extends Worker {
 
     protected function emit_summary() {
         foreach ($this->records as $product_id => $records) {
-            // 结构：品类id->撮合id->类型->信息记录id
-            $product_id = explode('_', $product_id)[0];
-            $json = $this->msgDataAll($product_id, 0, $records);
-            $this->client_worker->sendToGateway($json);
+            $tmp = ['sell'=>[], 'buy'=>[], 'order'=>[]];
+            foreach ($records as $record) {
+                if (isset($record['sell'])) {
+                    $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
+                }
+                if (isset($record['buy'])) {
+                    $tmp['buy'] = array_merge($tmp['buy'], $record['buy']);
+                }
+                if (isset($record['order'])) {
+                    $tmp['order'] = array_merge($tmp['order'], $record['order']);
+                }
+                
+                // 结构：品类id->撮合id->类型->信息记录id
+                $product_id = explode('_', $product_id)[0];
+                $user_id = 0;
+                $json = $this->msgDataAll($product_id, $user_id, $tmp);
+                Worker::log(json_encode($json));
+                $this->client_worker->sendToGateway($json);
+            }
+            
         }
     }
 
@@ -224,10 +230,20 @@ class TaskServer extends Worker {
                 //这一层是记录类型
                 $product_id = explode('_', $product_id)[0];
                 $user_id = explode('_', $user_id)[0];
-                $json = $this->msgData($product_id, $user_id, $record);
+                $tmp = ['sell'=>[], 'buy'=>[], 'order'=>[]];
+                if (isset($record['sell'])) {
+                    $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
+                }
+                if (isset($record['buy'])) {
+                    $tmp['buy'] = array_merge($tmp['buy'], $record['buy']);
+                }
+                if (isset($record['order'])) {
+                    $tmp['order'] = array_merge($tmp['order'], $record['order']);
+                }
+                $json = $this->msgData($product_id, $user_id, $tmp);
                 $this->client_worker->sendToGateway($json);
                 //发送之后将成交记录删除，即成交记录一直只发最新的
-                unset($this->records[$product_id][$user_id]['order']);
+                //unset($this->records[$product_id][$user_id]['order']);
             }
         }
     }
