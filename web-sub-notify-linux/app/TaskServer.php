@@ -127,7 +127,14 @@ class TaskServer extends Worker {
         }
         $num = count($arr);
         $average = $num > 0 ? $sum / $num : 0;
-        return [round(floatval($max), 2), round(floatval($min), 2), round(floatval($average), 2), $this->timestamp];
+        if ($average === 0) {
+            $max = $min = $average = '-';
+        } else {
+            $average = round(floatval($average), 2);
+            $max = round(floatval($max), 2);
+            $min = round(floatval($min), 2);
+        }
+        return [$max, $min, $average, $this->timestamp];
     }
 
     /*
