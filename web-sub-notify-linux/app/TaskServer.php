@@ -58,11 +58,19 @@ class TaskServer extends Worker {
         $hour = intval(date('H', $timestamp));
         return $hour >= 9 && $hour < 18;
     }
+    
+    private function reinit() {
+        $this->timestamp = 0;
+        $this->records = [];
+    }
 
     protected function initTimer() {
         Timer::add($this->conf['emit_interval'], function () {
-            if (!$this->isActive())
+            if (!$this->isActive()) {
+                //重置系统记录
+                $this->reinit();
                 return;
+            }
             //更新维护数据列表, 每60秒都会推送一次
             if ((int)date('s') > 59 - $this->conf['emit_interval']) {
                 //整点会推送，所以这次不做推送了
@@ -76,8 +84,11 @@ class TaskServer extends Worker {
             }
         });
         Timer::add(1, function () {
-            if (!$this->isActive())
+            if (!$this->isActive()) {
+                //重置系统记录
+                $this->reinit();
                 return;
+            }
             //更新维护数据列表, 到整点都会推送一次
             if (date('s') === '59') {
                 $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
