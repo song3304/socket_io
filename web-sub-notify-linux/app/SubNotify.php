@@ -19,6 +19,7 @@ use App\ClientWorker;
 use App\MsgIds;
 use Workerman\Connection\TcpConnection;
 use Workerman\Connection\AsyncTcpConnection;
+use App\StatisticClient;
 
 /**
  * Description of subNotify
@@ -63,6 +64,12 @@ class SubNotify
     const MESSAGE_GATEWAY_TO_CLIENT = 10002;
     // 消息类型，表示中心发过来的业务消息
     const MESSAGE_GATEWAY_BUSSINESS = 10003;
+
+    static private function classNameForLog() {
+        $class = join('_', explode('\\', __CLASS__));
+        return $class;
+    }
+
 
     public function __construct($socket_port = 2120, $http_port = 2121)
     {
@@ -190,9 +197,11 @@ class SubNotify
 
     protected function gatewayToAllHandle($json)
     {
+        StatisticClient::tick(self::classNameForLog(), __FUNCTION__);
         if (!isset($json->data))
         {
             //错误信息
+            StatisticClient::report(self::classNameForLog(), __METHOD__, FALSE, 0, 'data节点不存在');
             return;
         }
         // 将消息发给所有人
@@ -200,9 +209,12 @@ class SubNotify
         $event_type = isset($data->event_type) ? (string)$data->event_type : '';
         if (empty($event_type)) {
             //消息类型为空
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '消息类型为空');
             return;
         }
+        
         $this->sender_io->emit($event_type, json_encode($json->data));
+        StatisticClient::report(self::classNameForLog(), __FUNCTION__, true, 0, '');
     }
 
     /*
@@ -213,9 +225,11 @@ class SubNotify
 
     protected function gatewayToGroupHandle($json)
     {
+        StatisticClient::tick(self::classNameForLog(), __FUNCTION__);
         if (!isset($json->room) || !isset($json->data))
         {
             //错误信息
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, 'data||room 节点不存在');
             return;
         }
         // 将消息发给相应的组
@@ -223,9 +237,11 @@ class SubNotify
         $event_type = isset($data->event_type) ? (string)$data->event_type : '';
         if (empty($event_type)) {
             //消息类型为空
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '消息类型为空');
             return;
         }
         $this->sender_io->to($json->room)->emit($event_type, json_encode($json->data));
+        StatisticClient::report(self::classNameForLog(), __FUNCTION__, true, 0, '');
     }
 
     /*
@@ -236,11 +252,13 @@ class SubNotify
 
     protected function gatewayToClientHandle($json)
     {
+        StatisticClient::tick(self::classNameForLog(), __FUNCTION__);
         if (!isset($json->client) || 
             !isset($json->to_client) || 
             !isset($json->data) || 
             !isset($this->uidConnectionMap[$json->to_client]))
         {
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '节点不符合');
             return;
         }
         // 将消息发给相应的客户端
@@ -249,9 +267,11 @@ class SubNotify
         $event_type = isset($data->event_type) ? (string)$data->event_type : '';
         if (empty($event_type)) {
             //消息类型为空
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '消息类型为空');
             return;
         }
         $this->uidConnectionMap[$json->to_client]->emit($event_type, json_encode($json));
+        StatisticClient::report(self::classNameForLog(), __FUNCTION__, true, 0, '');
     }
 
     /*

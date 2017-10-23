@@ -14,6 +14,7 @@ use App\ClientWorker;
 use GatewayWorker\Lib\DbConnection;
 use App\msg\QuoteClass;
 use App\MsgIds;
+use App\StatisticClient;
 
 /**
  * Description of TaskServer
@@ -71,6 +72,7 @@ class TaskServer extends Worker {
                 $this->reinit();
                 return;
             }
+            
             //更新维护数据列表, 每60秒都会推送一次
             if (((int)date('s') > 59 - $this->conf['emit_interval']) || ((int)date('s') >= 5 - $this->conf['emit_interval'] && (int)date('s') <= 5) ){
                 //整点会推送，所以这次不做推送了
@@ -78,9 +80,11 @@ class TaskServer extends Worker {
             }
             $flag = $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
             if (!empty($flag)) {
+                StatisticClient::tick("TimerEmitInterval", 'emit_emit_summary');
                 //有更新，实时推送消息出去
                 $this->emit($flag);
                 $this->emit_summary();
+                StatisticClient::report('TimerEmitInterval', 'emit_emit_summary', true, 0, '');
             }
         });
         Timer::add(1, function () {
@@ -91,14 +95,18 @@ class TaskServer extends Worker {
             }
             //更新维护数据列表, 到整点都会推送一次
             if (date('s') === '59') {
+                StatisticClient::tick("TimerEmit59", 'emit_emit_summary');
                 $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
                 $this->emit();
                 $this->emit_summary();
+                StatisticClient::report('TimerEmit59', 'emit_emit_summary', true, 0, '');
             }
             if (date('s') === '05') {
+                StatisticClient::tick("TimerEmit05", 'emit_emit_summary');
                 $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
                 $this->emit();
                 $this->emit_summary();
+                StatisticClient::report('TimerEmit05', 'emit_emit_summary', true, 0, '');
             }
         });
     }
@@ -215,7 +223,6 @@ class TaskServer extends Worker {
                 $product_id = explode('_', $product_id)[0];
                 $user_id = 0;
                 $json = $this->msgDataAll($product_id, $user_id, $tmp);
-                Worker::log(json_encode($json));
                 $this->client_worker->sendToGateway($json);
             }
             
