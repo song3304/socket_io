@@ -13,8 +13,10 @@ use Workerman\Lib\Timer;
 use App\ClientWorker;
 use GatewayWorker\Lib\DbConnection;
 use App\msg\QuoteClass;
+use App\msg\ToClientClass;
 use App\MsgIds;
 use App\StatisticClient;
+use App\model\ProductOpenPrices;
 
 /**
  * Description of TaskServer
@@ -24,9 +26,10 @@ use App\StatisticClient;
  */
 class TaskServer extends Worker {
 
-    const buy=1;
-    const sell=-1;
-    const deal=2;
+    const buy = 1;
+    const sell = -1;
+    const deal = 2;
+
     //与服务通信客户端
     protected $client_worker = null;
     //数据库
@@ -35,10 +38,14 @@ class TaskServer extends Worker {
     protected $timestamp = 0;
     //当前所有数据
     protected $records = [];
+    //开盘价
+    protected $product_open_price = NULL;
+    //是否需要添加开盘报价
+    protected $notify_open_price = FALSE;
 
     protected function initClientWorker() {
         // 初始化与gateway连接服务
-        $client_worker = new ClientWorker($this->conf['gateway_addr']);
+        $client_worker = new ClientWorker($this->conf['gateway_addr'], $this->groupIno());
         $this->client_worker = $client_worker;
         // 消息回调
         $this->client_worker->onMessage = array($this, 'onGatewayMessage');
@@ -48,6 +55,18 @@ class TaskServer extends Worker {
         $conf = $this->conf['database'];
         $db = new DbConnection($conf['host'], $conf['port'], $conf['user'], $conf['password'], $conf['dbname'], $conf['charset']);
         $this->db = $db;
+        //初始化开盘报价信息
+        $this->product_open_price = new ProductOpenPrices($db);
+        $this->product_open_price->initTodayAllData();
+    }
+    
+    protected function groupIno() {
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_BUSSINESS,
+            'business_type'=>'JoinGroup',
+            'group'=>'TaskServer',
+        );
+        return $data;
     }
 
     /*
@@ -59,10 +78,12 @@ class TaskServer extends Worker {
         $hour = intval(date('H', $timestamp));
         return $hour >= 9 && $hour < 18;
     }
-    
+
     private function reinit() {
         $this->timestamp = 0;
         $this->records = [];
+        //开盘价信息清除
+        $this->product_open_price->clearAllData();
     }
 
     protected function initTimer() {
@@ -72,9 +93,9 @@ class TaskServer extends Worker {
                 $this->reinit();
                 return;
             }
-            
+
             //更新维护数据列表, 每60秒都会推送一次
-            if (((int)date('s') > 59 - $this->conf['emit_interval']) || ((int)date('s') >= 5 - $this->conf['emit_interval'] && (int)date('s') <= 5) ){
+            if (((int) date('s') > 59 - $this->conf['emit_interval']) || ((int) date('s') >= 5 - $this->conf['emit_interval'] && (int) date('s') <= 5)) {
                 //整点会推送，所以这次不做推送了
                 return;
             }
@@ -108,6 +129,16 @@ class TaskServer extends Worker {
                 $this->emit_summary();
                 StatisticClient::report('TimerEmit05', 'emit_emit_summary', true, 0, '');
             }
+//            if (date('H') === '09' && intval(date('i')) <= 5 && date('s') === '30') {
+                //9:00~9:05之间每隔30秒钟更新一次开盘价信息
+                StatisticClient::tick("TimerInitOpenPrice", 'init');
+                $this->product_open_price->initTodayAllData();
+                $this->notify_open_price = TRUE;    //指示需要推送开盘价
+                StatisticClient::report('TimerInitOpenPrice', 'init', true, 0, '');
+                echo "timer1\n";
+//            } else {
+//                $this->notify_open_price = FALSE;    //不需要推送开盘价
+//            }
         });
     }
 
@@ -145,6 +176,14 @@ class TaskServer extends Worker {
         return [$max, $min, $average, $this->timestamp];
     }
 
+    //添加开盘信息
+    private function addOpenPriceInfo(array &$arr, $product_id) {
+        StatisticClient::tick("AddOpenPrice", 'add');
+        $open_price_info = $this->product_open_price->openPriceInfo($product_id);
+        $arr = array_merge($arr, $open_price_info);
+        StatisticClient::report('AddOpenPrice', 'add', true, 0, '');
+    }
+
     /*
      * 组装成发给服务中心的数据
      */
@@ -158,10 +197,63 @@ class TaskServer extends Worker {
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
-        
+        //增加开盘信息
+        if ($this->notify_open_price) {
+            $this->addOpenPriceInfo($tmp, $product_id);
+        }
+
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
+            'room' => $roomId,
+            'data' => $msg,
+        );
+        return $data;
+    }
+
+    /*
+     * 客户端请求初次数据
+     */
+
+    private function msgDataToClient($product_id, $user_id, $record, $client) {
+
+        $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
+        //将array中的key去掉
+        $tmp = [];
+        foreach ($record as $key => $value) {
+            $tmp[$key] = array_values($value);
+            $tmp[$key . '_average'] = $this->arraySummary($value);
+        }
+        //增加开盘信息
+        if ($this->notify_open_price) {
+            $this->addOpenPriceInfo($tmp, $product_id);
+        }
+
+        $msg = ToClientClass::output($product_id, $user_id, $client, $tmp);
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_TO_CLIENT,
+            'room' => $roomId,
+            'data' => $msg,
+        );
+        return $data;
+    }
+
+    private function msgDataAllToClient($product_id, $user_id, $record, $client) {
+        $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
+        //将array中的key去掉
+        $tmp = [];
+        foreach ($record as $key => $value) {
+            $tmp[$key] = array_values($value);
+            $tmp[$key . '_average'] = $this->arraySummary($value);
+        }
+        //增加开盘信息
+        if ($this->notify_open_price) {
+            $this->addOpenPriceInfo($tmp, $product_id);
+        }
+
+        $msg = ToClientClass::output($product_id, $user_id, $client, $tmp);
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_TO_CLIENT,
             'room' => $roomId,
             'data' => $msg,
         );
@@ -192,6 +284,10 @@ class TaskServer extends Worker {
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
+        //增加开盘信息
+        if ($this->notify_open_price) {
+            $this->addOpenPriceInfo($tmp, $product_id);
+        }
         $msg = QuoteClass::output($product_id, $user_id, $tmp, TRUE);
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
@@ -207,7 +303,7 @@ class TaskServer extends Worker {
 
     protected function emit_summary() {
         foreach ($this->records as $product_id => $records) {
-            $tmp = ['sell'=>[], 'buy'=>[], 'order'=>[]];
+            $tmp = ['sell' => [], 'buy' => [], 'order' => []];
             foreach ($records as $record) {
                 if (isset($record['sell'])) {
                     $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
@@ -218,14 +314,12 @@ class TaskServer extends Worker {
                 if (isset($record['order'])) {
                     $tmp['order'] = array_merge($tmp['order'], $record['order']);
                 }
-                
-                // 结构：品类id->撮合id->类型->信息记录id
-                $product_id = explode('_', $product_id)[0];
-                $user_id = 0;
-                $json = $this->msgDataAll($product_id, $user_id, $tmp);
-                $this->client_worker->sendToGateway($json);
             }
-            
+            // 结构：品类id->撮合id->类型->信息记录id
+            $product_id = explode('_', $product_id)[0];
+            $user_id = 0;
+            $json = $this->msgDataAll($product_id, $user_id, $tmp);
+            $this->client_worker->sendToGateway($json);
         }
     }
 
@@ -244,7 +338,7 @@ class TaskServer extends Worker {
                 //这一层是记录类型
                 $product_id = explode('_', $product_id)[0];
                 $user_id = explode('_', $user_id)[0];
-                $tmp = ['sell'=>[], 'buy'=>[], 'order'=>[]];
+                $tmp = ['sell' => [], 'buy' => [], 'order' => []];
                 if (isset($record['sell'])) {
                     $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
                 }
@@ -316,7 +410,7 @@ class TaskServer extends Worker {
         $this->timestamp = time();
 
         $new_records = $first_readdb ? $this->selectAllRecords() : $this->selectAllRecordsAccordingTimestamp($timestamp);
-        
+
         if (empty($new_records)) {
             //没有新数据
             return FALSE;
@@ -324,7 +418,6 @@ class TaskServer extends Worker {
             return $this->storeRecords($new_records);
         }
     }
-    
 
     /*
      * 查找某一时刻之后更新的所有记录
@@ -338,48 +431,53 @@ class TaskServer extends Worker {
          */
         $timestamp = $timestamp - $this->conf['emit_interval'];
         $sell_buy = $this->db->query("select * from en_product_real_times where "
-                        . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
-                        . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
+                . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
+                . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
         $order = $this->db->query("select * from en_transactions where "
                 . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
                 . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
-        
-        foreach ($sell_buy as &$value){
-            $value['product']['name'] = $this->db->single("select name from en_products where id='".$value['product_id']."'");
-            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='".$value['trader_id']."'");
-            $value['stock']['name'] = $this->db->single("select name from en_storages where id='".$value['stock_id']."'");
-            
+
+        foreach ($sell_buy as &$value) {
+            $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
+            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
+            $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
+
             $type_tag = '';
-            switch ($value['trade_type'])
-            {
-                case static::buy: $type_tag = "买";break;
-                case static::sell:$type_tag = "卖";break;
-                case static::deal:$type_tag = "成交";break;
+            switch ($value['trade_type']) {
+                case static::buy: $type_tag = "买";
+                    break;
+                case static::sell:$type_tag = "卖";
+                    break;
+                case static::deal:$type_tag = "成交";
+                    break;
                 default: $type_tag = "未知";
             }
             $value['trader_type_tag'] = $type_tag;
-            
+
             $delivery_tag = '';
-            switch ($value['delivery_type'])
-            {
+            switch ($value['delivery_type']) {
                 case 0:
-                    $delivery_tag = '先货后款';break;
+                    $delivery_tag = '先货后款';
+                    break;
                 case 1:
-                    $delivery_tag = '先款后货';break;
+                    $delivery_tag = '先款后货';
+                    break;
                 default:
                     $delivery_tag = '未知';
             }
             $value['delivery_tag'] = $delivery_tag;
-            
+
             $withdraw_type_tag = '';
-            switch ($value['withdraw_type'])
-            {
+            switch ($value['withdraw_type']) {
                 case 0:
-                    $withdraw_type_tag = '电汇';break;
+                    $withdraw_type_tag = '电汇';
+                    break;
                 case 1:
-                    $withdraw_type_tag = '票汇';break;
+                    $withdraw_type_tag = '票汇';
+                    break;
                 case 2:
-                    $withdraw_type_tag = '信汇';break;
+                    $withdraw_type_tag = '信汇';
+                    break;
                 default:
                     $withdraw_type_tag = '未知';
             }
@@ -389,7 +487,9 @@ class TaskServer extends Worker {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
         }
-        $arr = [];$arr = array_merge($arr,$sell_buy);$arr = array_merge($arr,$order);
+        $arr = [];
+        $arr = array_merge($arr, $sell_buy);
+        $arr = array_merge($arr, $order);
         return $arr;
     }
 
@@ -401,42 +501,47 @@ class TaskServer extends Worker {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
         $sell_buy = $this->db->query("select * from en_product_real_times where delete_time is null");
         $order = $this->db->query("select * from en_transactions where delete_time is null");
-        foreach ($sell_buy as &$value){
-            $value['product']['name'] = $this->db->single("select name from en_products where id='".$value['product_id']."'");
-            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='".$value['trader_id']."'");
-            $value['stock']['name'] = $this->db->single("select name from en_storages where id='".$value['stock_id']."'");
-            
+        foreach ($sell_buy as &$value) {
+            $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
+            $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
+            $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
+
             $type_tag = '';
-            switch ($value['trade_type'])
-            {
-                case static::buy: $type_tag = "买";break;
-                case static::sell:$type_tag = "卖";break;
-                case static::deal:$type_tag = "成交";break;
+            switch ($value['trade_type']) {
+                case static::buy: $type_tag = "买";
+                    break;
+                case static::sell:$type_tag = "卖";
+                    break;
+                case static::deal:$type_tag = "成交";
+                    break;
                 default: $type_tag = "未知";
             }
             $value['trader_type_tag'] = $type_tag;
-            
+
             $delivery_tag = '';
-            switch ($value['delivery_type'])
-            {
+            switch ($value['delivery_type']) {
                 case 0:
-                    $delivery_tag = '先货后款';break;
+                    $delivery_tag = '先货后款';
+                    break;
                 case 1:
-                    $delivery_tag = '先款后货';break;
+                    $delivery_tag = '先款后货';
+                    break;
                 default:
                     $delivery_tag = '未知';
             }
             $value['delivery_tag'] = $delivery_tag;
-            
+
             $withdraw_type_tag = '';
-            switch ($value['withdraw_type'])
-            {
+            switch ($value['withdraw_type']) {
                 case 0:
-                    $withdraw_type_tag = '电汇';break;
+                    $withdraw_type_tag = '电汇';
+                    break;
                 case 1:
-                    $withdraw_type_tag = '票汇';break;
+                    $withdraw_type_tag = '票汇';
+                    break;
                 case 2:
-                    $withdraw_type_tag = '信汇';break;
+                    $withdraw_type_tag = '信汇';
+                    break;
                 default:
                     $withdraw_type_tag = '未知';
             }
@@ -446,8 +551,84 @@ class TaskServer extends Worker {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
         }
-        $arr = [];$arr = array_merge($arr,$sell_buy);$arr = array_merge($arr,$order);
+        $arr = [];
+        $arr = array_merge($arr, $sell_buy);
+        $arr = array_merge($arr, $order);
         return $arr;
+    }
+
+    /*
+     * 首次登陆请求数据
+     */
+
+    private function firstLoginDataNotify($product_id, $user_id, $client) {
+        if (empty($user_id)) {
+            //请求大盘数据
+            $this->sendSummaryMsgToClient($product_id, 0, $client);
+        } else {
+            //请求某一个人的小盘
+            $this->sendMsgToClient($product_id, $user_id, $client);
+        }
+    }
+
+    /*
+     * 用户登录后请求数据，非整体数据
+     */
+
+    private function sendMsgToClient($product_id, $user_id, $client) {
+        $product_id_tmp = $product_id . '_product';
+        $user_id_tmp = $user_id . '_user';
+        $record = isset($this->records[$product_id_tmp][$user_id_tmp]) ? $this->records[$product_id_tmp][$user_id_tmp] : [];
+        if (!empty($record)) {
+            $tmp = ['sell' => [], 'buy' => [], 'order' => []];
+            if (isset($record['sell'])) {
+                $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
+            }
+            if (isset($record['buy'])) {
+                $tmp['buy'] = array_merge($tmp['buy'], $record['buy']);
+            }
+            if (isset($record['order'])) {
+                $tmp['order'] = array_merge($tmp['order'], $record['order']);
+            }
+            $json = $this->msgDataToClient($product_id, $user_id, $tmp, $client);
+            $this->client_worker->sendToGateway($json);
+        } else {
+            //没有数据，返回false
+            return;
+        }
+    }
+
+    /*
+     * 用户登录后请求数据，大盘数据
+     */
+
+    private function sendSummaryMsgToClient($product_id, $user_id, $client) {
+        $product_id_tmp = $product_id . '_product';
+        $user_id_tmp = $user_id . '_user';
+        $records = isset($this->records[$product_id_tmp]) ? $this->records[$product_id_tmp] : [];
+        if (!empty($records)) {
+            $tmp = ['sell' => [], 'buy' => [], 'order' => []];
+            foreach ($records as $record) {
+                if (isset($record['sell'])) {
+                    $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
+                }
+                if (isset($record['buy'])) {
+                    $tmp['buy'] = array_merge($tmp['buy'], $record['buy']);
+                }
+                if (isset($record['order'])) {
+                    $tmp['order'] = array_merge($tmp['order'], $record['order']);
+                }
+            }
+            // 结构：品类id->撮合id->类型->信息记录id
+            $product_id = explode('_', $product_id)[0];
+            $user_id = 0;
+            $json = $this->msgDataAllToClient($product_id, $user_id, $tmp, $client);
+            print_r($json);
+            $this->client_worker->sendToGateway($json);
+        } else {
+            //没有数据，返回false
+            return;
+        }
     }
 
     /*
@@ -455,7 +636,21 @@ class TaskServer extends Worker {
      */
 
     public function onGatewayMessage($connection, $data) {
-        //不做处理
+        //
+        echo "```````````````````````````````\n";
+        print_r($data);
+        echo "```````````````````````````````\n";
+        $json = json_decode($data);
+        if (empty($json)) {
+            return;
+        } else if (isset($json->id) && $json->id == MsgIds::MESSAGE_GATEWAY_BUSSINESS) {
+            echo "wwwwwwwwwwwwwwwwwwwwwwwwwww\n";
+            if (isset($json->business_type) && $json->business_type == 'firstLogin' && isset($json->client) && !empty($json->client) && isset($json->product_id) && !empty($json->product_id) && isset($json->user_id)) {
+                //用户来获取第一次登录后的实时信息了
+                $json = $this->firstLoginDataNotify($json->product_id, $json->user_id, $json->client);
+                echo "qqqqqqqqqqqqqqqqqqqqqqqqqq\n";
+            }
+        }
     }
 
     public function workerStart() {

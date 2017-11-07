@@ -25,6 +25,6 @@ class MsgIds
     const MESSAGE_GATEWAY_TO_GROUP = 10001;
     // 消息类型，表示中心发过来需要发送给某个人的消息
     const MESSAGE_GATEWAY_TO_CLIENT = 10002;
-    // 消息类型，表示中心发过来的业务消息
+    // 消息类型，表示业务消息
     const MESSAGE_GATEWAY_BUSSINESS = 10003;
 }

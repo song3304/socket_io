@@ -16,7 +16,7 @@ use App\msg\ErrorMsg;
  */
 class ToClientClass {
     
-    static public function output($uid,$to_uid, $data) {
+    static public function output($product_id, $match_id, $client_id,$data) {
 //        if (!$json = json_decode($data)) {
 //            return ErrorMsg::output(ErrorMsg::ERROR, ErrorMsg::ERROR_MSG);
 //        }
@@ -27,10 +27,11 @@ class ToClientClass {
         //组装返回
         return array(
             'code' => 0,
-            'client'=>$uid,
-            'to_client'=>$to_uid,
+            'product_id' => $product_id,
+            'match_id' => $match_id,
+            'to_client' => $client_id,
             'data'=>$json,
-            'event_type'=>'client_call_me',    //推客户端的事件类型
+            'event_type'=>'quoteUpdate',    //推客户端的事件类型
         );
     }
 }

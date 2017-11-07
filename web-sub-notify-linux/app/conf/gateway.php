@@ -16,9 +16,9 @@ return array(
         'local_pk' => '', //pk
     ),
     'database' => [
-        'host' => '192.168.0.53',
+        'host' => '127.0.0.1',
         'port' => 3306,
-        'user' => 'root',
+        'user' => 'app',
         'password' => '123456',
         'dbname' => 'energy',
         'charset' => 'utf8mb4',

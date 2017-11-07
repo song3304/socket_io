@@ -190,6 +190,31 @@ class SubNotify
     }
     
     /*
+     * 请求数据
+     */
+    protected function firstLogin($product_id, $user_id, $client_id) {
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_BUSSINESS,
+            'business_type'=>'firstLogin',
+            'client'=>$client_id,
+            'product_id'=>$product_id,
+            'user_id'=>$user_id
+        );
+        print_r($data);
+        $this->client_worker->sendToGateway($data);
+    }
+    
+    protected function groupIno() {
+        $data = array(
+            'id' => MsgIds::MESSAGE_GATEWAY_BUSSINESS,
+            'business_type'=>'JoinGroup',
+            'group'=>'SubNotify',
+        );
+        return $data;
+    }
+
+
+    /*
      * gateway中心发来的消息，需要转给所有客户端
      * @param json 格式的消息
      * @return 返回消息处理结果
@@ -241,6 +266,7 @@ class SubNotify
             return;
         }
         $this->sender_io->to($json->room)->emit($event_type, json_encode($json->data));
+        Worker::log("$json->room, $event_type");
         StatisticClient::report(self::classNameForLog(), __FUNCTION__, true, 0, '');
     }
 
@@ -252,25 +278,28 @@ class SubNotify
 
     protected function gatewayToClientHandle($json)
     {
+        print_r($json);
         StatisticClient::tick(self::classNameForLog(), __FUNCTION__);
-        if (!isset($json->client) || 
-            !isset($json->to_client) || 
-            !isset($json->data) || 
-            !isset($this->uidConnectionMap[$json->to_client]))
+        if (!isset($json->room) || !isset($json->data))
         {
-            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '节点不符合');
+            //错误信息
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, 'data||room 节点不存在');
+            return;
+        }
+        if (!isset($this->uidConnectionMap[$json->data->to_client])) {
+            //错误信息
+            StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '客户端连接不存在');
             return;
         }
         // 将消息发给相应的客户端
         unset($json->id);
-        $data = json_decode($json->data);
-        $event_type = isset($data->event_type) ? (string)$data->event_type : '';
+        $event_type = isset($json->data->event_type) ? (string)$json->data->event_type : '';
         if (empty($event_type)) {
             //消息类型为空
             StatisticClient::report(self::classNameForLog(), __FUNCTION__, FALSE, 0, '消息类型为空');
             return;
         }
-        $this->uidConnectionMap[$json->to_client]->emit($event_type, json_encode($json));
+        $this->uidConnectionMap[$json->data->to_client]['connection']->emit($event_type, json_encode($json->data));
         StatisticClient::report(self::classNameForLog(), __FUNCTION__, true, 0, '');
     }
 
@@ -325,7 +354,7 @@ class SubNotify
     public function clientWorkerInit()
     {
         // 初始化与gateway连接服务
-        $client_worker = new ClientWorker($this->gateway_addr);
+        $client_worker = new ClientWorker($this->gateway_addr, $this->groupIno());
         $this->client_worker = $client_worker;
         // 消息回调
         $this->onMessage = array($this, 'onGatewayMessage');
@@ -341,7 +370,6 @@ class SubNotify
             // 当客户端登录验证
             $socket->on('login', function ($uid)use($socket) {
                 //todo：验证登陆是否合法
-
                 if (!$this->system_status)
                 {
                     //系统维护中
@@ -349,6 +377,7 @@ class SubNotify
                 }
 
                 // 更新对应uid的在线数据
+                $uid = $socket->id;     //重写uid，使用socket的唯一标识
                 $uid = (string) $uid;
                 //合法之后存入uid，这是登陆成功的标记
                 $socket->uid = $uid;
@@ -367,6 +396,7 @@ class SubNotify
 
             // 用户注册自己订阅的服务
             $socket->on('register', function ($uid, $product_id, $match_id)use($socket) {
+                $uid = $socket->uid;
                 if (!isset($socket->uid))
                 {
                     return;
@@ -374,9 +404,11 @@ class SubNotify
                 // 将这个连接加入到uid分组，方便针对uid推送数据
                 $roomId = SubNotifyRooms::roomId($uid, $product_id, $match_id);
                 // 进入房间名单
+                Worker::log("$uid join $roomId");
                 $socket->join($roomId);
                 // 通知进入房间了
                 $this->sender_io->to($roomId)->emit('member_enter', $uid, $product_id, $match_id);
+                $this->firstLogin($product_id, $match_id, $socket->uid);
             });
 
             // 当客户端请求更新报价数据

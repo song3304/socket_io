@@ -7,6 +7,7 @@
  */
 
 namespace App;
+
 use Workerman\Worker;
 use Workerman\Connection\TcpConnection;
 use Workerman\Connection\AsyncTcpConnection;
@@ -18,8 +19,7 @@ use Workerman\Protocols\Text;
  *
  * @author Xp
  */
-class ClientWorker
-{
+class ClientWorker {
 
     /**
      * 保存与gateway的连接connection对象
@@ -50,15 +50,24 @@ class ClientWorker
      * @param string $socket_name
      * @param array $context_option
      */
-    public function __construct($gateway_addr = '127.0.0.1:8282')
-    {
+    public function __construct($gateway_addr = '127.0.0.1:8282', $group_info = NULL) {
         $this->gatewayAddr = $gateway_addr;
+        $this->groupInfo = $group_info;
         Timer::add(1, array($this, 'checkGatewayConnections'));
         $this->checkGatewayConnections();
+        Timer::add(2, array($this, 'joinGroup'), [], FALSE);
+        Timer::add(30, array($this, 'joinGroup'));
     }
 
-    public function sendToGateway($msg)
-    {
+    public function joinGroup() {
+        if (empty($this->groupInfo)) {
+            return;
+        } else {
+            $this->sendToGateway($this->groupInfo);
+        }
+    }
+
+    public function sendToGateway($msg) {
         if (!is_string($msg)) {
             $msg = json_encode($msg);
         }
@@ -66,12 +75,9 @@ class ClientWorker
             //错误了
             return;
         }
-        if (!is_null($this->gatewayConnection))
-        {
+        if (!is_null($this->gatewayConnection)) {
             $this->gatewayConnection->send($msg);
-        }
-        else
-        {
+        } else {
             // 没有连接上
             Worker::log("connect to $this->gatewayAddr failed!");
         }
@@ -82,11 +88,9 @@ class ClientWorker
      * @param TcpConnection $connection
      * @param string $data
      */
-    public function onGatewayMessage($connection, $data)
-    {
+    public function onGatewayMessage($connection, $data) {
         // TODO:远端服务器发来消息
-        if ($this->onMessage)
-        {
+        if ($this->onMessage) {
             call_user_func($this->onMessage, $connection, $data);
         }
     }
@@ -96,8 +100,7 @@ class ClientWorker
      * @param TcpConnection $connection
      * @return  void
      */
-    public function onClose($connection)
-    {
+    public function onClose($connection) {
         unset($this->gatewayConnection);
         $this->gatewayConnection = null;
         Worker::log("$connection->remoteAddress" . " has closed...");
@@ -108,19 +111,16 @@ class ClientWorker
      * 如果没有连接，尝试连接
      * @return void
      */
-    public function checkGatewayConnections()
-    {
+    public function checkGatewayConnections() {
         $addr = $this->gatewayAddr;
-        if (is_null($this->gatewayConnection))
-        {
+        if (is_null($this->gatewayConnection)) {
             $gateway_connection = new AsyncTcpConnection("Text://$addr");
             $gateway_connection->remoteAddress = $addr;
             $gateway_connection->onConnect = array($this, 'onConnectGateway');
             $gateway_connection->onMessage = array($this, 'onGatewayMessage');
             $gateway_connection->onClose = array($this, 'onClose');
             $gateway_connection->onError = array($this, 'onError');
-            if (TcpConnection::$defaultMaxSendBufferSize == $gateway_connection->maxSendBufferSize)
-            {
+            if (TcpConnection::$defaultMaxSendBufferSize == $gateway_connection->maxSendBufferSize) {
                 $gateway_connection->maxSendBufferSize = 10 * 1024 * 1024;
             }
             $gateway_connection->connect();
@@ -133,8 +133,7 @@ class ClientWorker
      * @param TcpConnection $connection
      * @return void
      */
-    public function onConnectGateway($connection)
-    {
+    public function onConnectGateway($connection) {
         $this->gatewayConnection = $connection;
     }
 
@@ -144,15 +143,11 @@ class ClientWorker
      * @param int $error_no
      * @param string $error_msg
      */
-    public function onError($connection, $error_no, $error_msg)
-    {
-        if ($error_no === WORKERMAN_CONNECT_FAIL)
-        {
+    public function onError($connection, $error_no, $error_msg) {
+        if ($error_no === WORKERMAN_CONNECT_FAIL) {
             $this->tryToDeleteGatewayAddress($connection->remoteAddress, $error_msg);
             return;
-        }
-        else if ($error_no === WORKERMAN_SEND_FAIL)
-        {
+        } else if ($error_no === WORKERMAN_SEND_FAIL) {
             // 发送失败 
             // TODO:应该保存下来，重新发送
             Worker::log("send fail\n");
@@ -164,8 +159,7 @@ class ClientWorker
      * @param string $addr
      * @param string $errstr
      */
-    public function tryToDeleteGatewayAddress($addr, $errstr)
-    {
+    public function tryToDeleteGatewayAddress($addr, $errstr) {
         // 删除所有设置，以方便下次重新连接
         unset($this->gatewayConnections[$addr]);
         Worker::log("tcp://$addr " . $errstr . " $addr will reconnect");

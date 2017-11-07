@@ -19,6 +19,6 @@ class SubNotifyRooms
      * @return string 根据品类和撮合id返回相关的room信息
      */
     static public function roomId($uid, $product_id, $match_id) {
-        return "subNotify_"."$product_id".'_'."$match_id";
+        return "subNotify_"."product_id_$product_id".'_'."match_id_$match_id";
     }
 }
