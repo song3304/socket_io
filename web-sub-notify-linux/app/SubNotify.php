@@ -113,7 +113,6 @@ class SubNotify
     public function admin($status)
     {
         //通过status控制活动是否开关
-        echo $status;
         $status = (int) $status > 0 ? TRUE : FALSE;
         $this->system_status = $status;
         $this->saveData();
@@ -200,7 +199,6 @@ class SubNotify
             'product_id'=>$product_id,
             'user_id'=>$user_id
         );
-        print_r($data);
         $this->client_worker->sendToGateway($data);
     }
     
@@ -278,7 +276,6 @@ class SubNotify
 
     protected function gatewayToClientHandle($json)
     {
-        print_r($json);
         StatisticClient::tick(self::classNameForLog(), __FUNCTION__);
         if (!isset($json->room) || !isset($json->data))
         {

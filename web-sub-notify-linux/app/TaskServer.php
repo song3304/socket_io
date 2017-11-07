@@ -623,7 +623,6 @@ class TaskServer extends Worker {
             $product_id = explode('_', $product_id)[0];
             $user_id = 0;
             $json = $this->msgDataAllToClient($product_id, $user_id, $tmp, $client);
-            print_r($json);
             $this->client_worker->sendToGateway($json);
         } else {
             //没有数据，返回false
@@ -637,18 +636,13 @@ class TaskServer extends Worker {
 
     public function onGatewayMessage($connection, $data) {
         //
-        echo "```````````````````````````````\n";
-        print_r($data);
-        echo "```````````````````````````````\n";
         $json = json_decode($data);
         if (empty($json)) {
             return;
         } else if (isset($json->id) && $json->id == MsgIds::MESSAGE_GATEWAY_BUSSINESS) {
-            echo "wwwwwwwwwwwwwwwwwwwwwwwwwww\n";
             if (isset($json->business_type) && $json->business_type == 'firstLogin' && isset($json->client) && !empty($json->client) && isset($json->product_id) && !empty($json->product_id) && isset($json->user_id)) {
                 //用户来获取第一次登录后的实时信息了
                 $json = $this->firstLoginDataNotify($json->product_id, $json->user_id, $json->client);
-                echo "qqqqqqqqqqqqqqqqqqqqqqqqqq\n";
             }
         }
     }
