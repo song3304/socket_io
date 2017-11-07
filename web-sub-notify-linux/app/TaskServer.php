@@ -135,7 +135,6 @@ class TaskServer extends Worker {
                 $this->product_open_price->initTodayAllData();
                 $this->notify_open_price = TRUE;    //指示需要推送开盘价
                 StatisticClient::report('TimerInitOpenPrice', 'init', true, 0, '');
-                echo "timer1\n";
 //            } else {
 //                $this->notify_open_price = FALSE;    //不需要推送开盘价
 //            }
