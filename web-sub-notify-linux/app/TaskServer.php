@@ -304,13 +304,13 @@ class TaskServer extends Worker {
         foreach ($this->records as $product_id => $records) {
             $tmp = ['sell' => [], 'buy' => [], 'order' => []];
             foreach ($records as $record) {
-                if (isset($record['sell'])) {
+                if (isset($record['sell']) && is_array($record['sell'])) {
                     $tmp['sell'] = array_merge($tmp['sell'], $record['sell']);
                 }
-                if (isset($record['buy'])) {
+                if (isset($record['buy']) && is_array($record['buy'])) {
                     $tmp['buy'] = array_merge($tmp['buy'], $record['buy']);
                 }
-                if (isset($record['order'])) {
+                if (isset($record['order']) && is_array($record['order'])) {
                     $tmp['order'] = array_merge($tmp['order'], $record['order']);
                 }
             }
@@ -354,6 +354,30 @@ class TaskServer extends Worker {
             }
         }
     }
+    
+    /*
+     * 移除过期数据
+     */
+    private function removeExpireData(&$records) {
+        //查找最后的时间
+        $max_time = 0;
+        $loop = 0;
+        foreach ($records as $key => $r) {
+            $uptime = strtotime($r['update_time']);
+            if ($loop++ == 0) {
+                $max_time = $uptime;
+            } else if ($uptime > $max_time){
+                $max_time = $uptime;
+            }
+            
+        }
+        //将该时间60秒之前数据清空
+        foreach ($records as $key => $r) {
+            if (strtotime($r['update_time']) < $max_time - 60 || !empty($r['delete_time'])) {
+                unset($records[$key]);
+            }
+        }
+    }
 
     //返回有更新的信息数组
     private function storeRecords($new_records) {
@@ -378,14 +402,7 @@ class TaskServer extends Worker {
                 default:
                     break;
             }
-            //有新数据，则将原来的60秒之前的数据
-            if (isset($this->records[$product_id][$user_id][$trade_type]) && is_array($this->records[$product_id][$user_id][$trade_type])) {
-                foreach ($this->records[$product_id][$user_id][$trade_type] as $key => $r) {
-                    if (strtotime($r['update_time']) < $this->timestamp - 60 || !empty($r['delete_time'])) {
-                        unset($this->records[$product_id][$user_id][$trade_type][$key]);
-                    }
-                }
-            }
+            
             //直接将新数据复制过来
             if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
                 //不是买、卖、成交记录
@@ -394,6 +411,9 @@ class TaskServer extends Worker {
                 $this->records[$product_id][$user_id][$trade_type][$id] = $record;
                 $update_arr[] = $product_id . '_' . $user_id;
             }
+            
+            //清理过期数据
+            $this->removeExpireData($this->records[$product_id][$user_id][$trade_type]);
         }
         return array_unique($update_arr);
     }
