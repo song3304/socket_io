@@ -59,12 +59,12 @@ class TaskServer extends Worker {
         $this->product_open_price = new ProductOpenPrices($db);
         $this->product_open_price->initTodayAllData();
     }
-    
+
     protected function groupIno() {
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_BUSSINESS,
-            'business_type'=>'JoinGroup',
-            'group'=>'TaskServer',
+            'business_type' => 'JoinGroup',
+            'group' => 'TaskServer',
         );
         return $data;
     }
@@ -76,7 +76,7 @@ class TaskServer extends Worker {
     private function isActive() {
         $timestamp = time();
         $hour = intval(date('H', $timestamp));
-        return $hour >= 9 && $hour < 18;
+        return $hour >= 9 && $hour < 22;
     }
 
     private function reinit() {
@@ -129,15 +129,15 @@ class TaskServer extends Worker {
                 $this->emit_summary();
                 StatisticClient::report('TimerEmit05', 'emit_emit_summary', true, 0, '');
             }
-//            if (date('H') === '09' && intval(date('i')) <= 5 && date('s') === '30') {
+            if (date('H') === '09' && intval(date('i')) <= 5 && date('s') === '30') {
                 //9:00~9:05之间每隔30秒钟更新一次开盘价信息
                 StatisticClient::tick("TimerInitOpenPrice", 'init');
                 $this->product_open_price->initTodayAllData();
                 $this->notify_open_price = TRUE;    //指示需要推送开盘价
                 StatisticClient::report('TimerInitOpenPrice', 'init', true, 0, '');
-//            } else {
-//                $this->notify_open_price = FALSE;    //不需要推送开盘价
-//            }
+            } else {
+                $this->notify_open_price = TRUE;    //指示需要推送开盘价，即开盘价一直推送，只是在9:00~9:05之间需要查询数据库中数据进行更新
+            }
         });
     }
 
@@ -237,11 +237,25 @@ class TaskServer extends Worker {
         return $data;
     }
 
+    //过滤掉开盘价正负10%以外的数据
+    private function filterPrice($product_id, $type, &$value) {
+        $open_price = floatval($this->product_open_price->openPice($product_id, $type));
+        if ($open_price > 0) {
+            foreach ($value as $k => $v) {
+                $price = floatval($v['trade_price']);
+                if ($price > $open_price * 1.1 || $price < $open_price * 0.9) {
+                    unset($value[$k]);
+                }
+            }
+        }
+    }
+
     private function msgDataAllToClient($product_id, $user_id, $record, $client) {
         $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
         //将array中的key去掉
         $tmp = [];
         foreach ($record as $key => $value) {
+            $this->filterPrice($product_id, $key, $value);
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
@@ -280,6 +294,8 @@ class TaskServer extends Worker {
         //将array中的key去掉
         $tmp = [];
         foreach ($record as $key => $value) {
+            //过滤掉开盘价正负10%以外的数据
+            $this->filterPrice($product_id, $key, $value);
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
@@ -354,10 +370,11 @@ class TaskServer extends Worker {
             }
         }
     }
-    
+
     /*
      * 移除过期数据
      */
+
     private function removeExpireData(&$records) {
         //查找最后的时间
         $max_time = 0;
@@ -366,10 +383,9 @@ class TaskServer extends Worker {
             $uptime = strtotime($r['update_time']);
             if ($loop++ == 0) {
                 $max_time = $uptime;
-            } else if ($uptime > $max_time){
+            } else if ($uptime > $max_time) {
                 $max_time = $uptime;
             }
-            
         }
         //将该时间60秒之前数据清空
         foreach ($records as $key => $r) {
@@ -402,7 +418,7 @@ class TaskServer extends Worker {
                 default:
                     break;
             }
-            
+
             //直接将新数据复制过来
             if (!in_array($trade_type, ['sell', 'buy', 'order'], TRUE)) {
                 //不是买、卖、成交记录
@@ -411,7 +427,7 @@ class TaskServer extends Worker {
                 $this->records[$product_id][$user_id][$trade_type][$id] = $record;
                 $update_arr[] = $product_id . '_' . $user_id;
             }
-            
+
             //清理过期数据
             $this->removeExpireData($this->records[$product_id][$user_id][$trade_type]);
         }
@@ -519,7 +535,8 @@ class TaskServer extends Worker {
     private function selectAllRecords() {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
         $sell_buy = $this->db->query("select * from en_product_real_times where delete_time is null");
-        $order = $this->db->query("select * from en_transactions where delete_time is null");
+        $timestamp = strtotime(date('Y-m-d 09:00:00', time()));
+        $order = $this->db->query("select * from en_transactions where delete_time is null and UNIX_TIMESTAMP(create_time)>=$timestamp");
         foreach ($sell_buy as &$value) {
             $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");

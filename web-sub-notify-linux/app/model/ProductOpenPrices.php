@@ -29,10 +29,10 @@ class ProductOpenPrices {
         //判断type是否正确
         $type = in_array($type, ['sell', 'buy']) ? $type : NULL;
         $product_id = (string)$product_id;
-        if ($type != NULL && isset($this->records[$product_id][$type])) {
-            return $this->records[$product_id][$type];
+        if ($type != NULL && isset($this->records[$product_id][$type]['open_price'])) {
+            return $this->records[$product_id][$type]['open_price'];
         } else {
-            return [];
+            return '-';
         }
     }
     
