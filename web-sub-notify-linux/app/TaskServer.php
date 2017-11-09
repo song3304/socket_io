@@ -177,10 +177,8 @@ class TaskServer extends Worker {
 
     //添加开盘信息
     private function addOpenPriceInfo(array &$arr, $product_id) {
-        StatisticClient::tick("AddOpenPrice", 'add');
         $open_price_info = $this->product_open_price->openPriceInfo($product_id);
         $arr = array_merge($arr, $open_price_info);
-        StatisticClient::report('AddOpenPrice', 'add', true, 0, '');
     }
 
     /*
