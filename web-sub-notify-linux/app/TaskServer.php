@@ -600,7 +600,7 @@ class TaskServer extends Worker {
             StatisticClient::tick("FirstLogin", 'SummaryMsgToClient');
             //请求大盘数据
             $this->sendSummaryMsgToClient($product_id, 0, $client);
-            StatisticClient::report('FirstLogin', 'SummaryMsg', true, 0, '');
+            StatisticClient::report('FirstLogin', 'SummaryMsgToClient', true, 0, '');
         } else {
             StatisticClient::tick("FirstLogin", 'MsgToClient');
             //请求某一个人的小盘
