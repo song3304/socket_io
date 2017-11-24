@@ -224,9 +224,16 @@ class TaskServer extends Worker {
         $roomId = SubNotifyRooms::roomId(0, $product_id, $user_id);
         //将array中的key去掉
         $tmp = [];
-        foreach ($record as $key => $value) {
-            $tmp[$key] = array_values($value);
-            $tmp[$key . '_average'] = $this->arraySummary($value);
+        if(empty($record)){
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $tmp['buy'] = $tmp['sell']  = [];
+            $tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
+            $tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
+        }else{
+            foreach ($record as $key => $value) {
+                $tmp[$key] = array_values($value);
+                $tmp[$key . '_average'] = $this->arraySummary($value);
+            }
         }
         //增加开盘信息
         if ($this->notify_open_price) {
@@ -263,6 +270,12 @@ class TaskServer extends Worker {
             $this->filterPrice($product_id, $key, $value);
             $tmp[$key] = array_values($value);
             $tmp[$key . '_average'] = $this->arraySummary($value);
+        }
+        if(empty($record)){
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $tmp['buy'] = $tmp['sell']  = [];
+            $tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
+            $tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
         }
         //增加开盘信息
         if ($this->notify_open_price) {
