@@ -129,7 +129,7 @@ class TaskServer extends Worker {
                 $this->emit_summary();
                 StatisticClient::report('TimerEmit05', 'emit_emit_summary', true, 0, '');
             }
-            if (date('H') === '09' && intval(date('i')) <= 5 && (date('s') === '00' || date('s') === '30')) {
+            if (date('H') === '09' && intval(date('i')) <= 20 && (date('s') === '00' || date('s') === '30')) {
                 //9:00~9:05之间每隔30秒钟更新一次开盘价信息
                 StatisticClient::tick("TimerInitOpenPrice", 'init');
                 $this->product_open_price->initTodayAllData();
