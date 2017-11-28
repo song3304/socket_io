@@ -42,6 +42,10 @@ class TaskServer extends Worker {
     protected $product_open_price = NULL;
     //是否需要添加开盘报价
     protected $notify_open_price = FALSE;
+    // 客户端关注的没有数据的个人盘
+    protected $sub_products = [];
+    // 客户端关注的没有数据的大盘
+    protected $sub_summary_products = [];
 
     protected function initClientWorker() {
         // 初始化与gateway连接服务
@@ -361,6 +365,13 @@ class TaskServer extends Worker {
             $user_id = 0;
             $json = $this->msgDataAll($product_id, $user_id, $tmp);
             $this->client_worker->sendToGateway($json);
+
+			$this->reduceSubProducts($product_id, $user_id);
+        }
+        //推送没有数据的盘面数据为开盘价
+        foreach ($this->sub_summary_products as $product_id => $value) {
+            $json = $this->msgDataAll($product_id, $user_id, []);
+            $this->client_worker->sendToGateway($json);
         }
     }
 
@@ -393,7 +404,13 @@ class TaskServer extends Worker {
                 $this->client_worker->sendToGateway($json);
                 //发送之后将成交记录删除，即成交记录一直只发最新的
                 //unset($this->records[$product_id][$user_id]['order']);
+                $this->reduceSubProducts($product_id, $user_id);
             }
+        }
+        //推送没有数据的盘面数据为开盘价
+        foreach ($this->sub_products as $product_id => $user_id) {
+            $json = $this->msgData($product_id, $user_id, []);
+            $this->client_worker->sendToGateway($json);
         }
     }
 
@@ -618,6 +635,26 @@ class TaskServer extends Worker {
         $arr = array_merge($arr, $order);
         return $arr;
     }
+    
+    private function addSubProducts($product_id, $user_id) {
+        if (empty($user_id)) {
+            //加入关注列表
+            $this->sub_summary_products[$product_id] = 1;
+        } else {
+            //加入关注列表
+            $this->sub_products[$product_id] = $user_id;
+        }
+    }
+    
+    private function reduceSubProducts($product_id, $user_id) {
+        if (empty($user_id)) {
+            //加入关注列表
+            unset($this->sub_summary_products[$product_id]);
+        } else if ($user_id == $this->sub_products[$product_id]){
+            //加入关注列表
+            unset($this->sub_products[$product_id]);
+        }
+    }
 
     /*
      * 首次登陆请求数据
@@ -635,6 +672,7 @@ class TaskServer extends Worker {
             $this->sendMsgToClient($product_id, $user_id, $client);
             StatisticClient::report('FirstLogin', 'MsgToClient', true, 0, '');
         }
+        $this->addSubProducts($product_id, $user_id);
     }
 
     /*
@@ -660,6 +698,8 @@ class TaskServer extends Worker {
             $this->client_worker->sendToGateway($json);
         } else {
             //没有数据，返回false
+            $json = $this->msgDataToClient($product_id, $user_id, [], $client);
+            $this->client_worker->sendToGateway($json);
             return;
         }
     }
@@ -692,6 +732,8 @@ class TaskServer extends Worker {
             $this->client_worker->sendToGateway($json);
         } else {
             //没有数据，返回false
+            $json = $this->msgDataAllToClient($product_id, $user_id, [], $client);
+            $this->client_worker->sendToGateway($json);
             return;
         }
     }
