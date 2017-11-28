@@ -650,7 +650,7 @@ class TaskServer extends Worker {
         if (empty($user_id)) {
             //加入关注列表
             unset($this->sub_summary_products[$product_id]);
-        } else if ($user_id == $this->sub_products[$product_id]){
+        } else if (isset ($this->sub_products[$product_id]) && $user_id == $this->sub_products[$product_id]){
             //加入关注列表
             unset($this->sub_products[$product_id]);
         }
