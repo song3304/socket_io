@@ -156,7 +156,7 @@ class TaskServer extends Worker {
         $sum = 0;
         $first = TRUE;
         foreach ($arr as $value) {
-            $field_value = isset($value[$field]) ? round(floatval($value[$field]), 2) : 0;
+            $field_value = isset($value[$field]) ? intval($value[$field]) : 0;
             if ($first) {
                 $first = FALSE;
                 $sum = $max = $min = $field_value;
@@ -172,9 +172,9 @@ class TaskServer extends Worker {
         if ($average === 0) {
             $max = $min = $average = '-';
         } else {
-            $average = round(floatval($average), 2);
-            $max = round(floatval($max), 2);
-            $min = round(floatval($min), 2);
+            $average = intval($average);
+            $max = intval($max);
+            $min = intval($min);
         }
         return [$max, $min, $average, $this->timestamp];
     }
@@ -255,10 +255,10 @@ class TaskServer extends Worker {
 
     //过滤掉开盘价正负10%以外的数据
     private function filterPrice($product_id, $type, &$value) {
-        $open_price = floatval($this->product_open_price->openPice($product_id, $type));
+        $open_price = intval($this->product_open_price->openPice($product_id, $type));
         if ($open_price > 0) {
             foreach ($value as $k => $v) {
-                $price = floatval($v['trade_price']);
+                $price = intval($v['trade_price']);
                 if ($price > $open_price * 1.1 || $price < $open_price * 0.9) {
                     unset($value[$k]);
                 }
@@ -306,7 +306,7 @@ class TaskServer extends Worker {
             $count += $value['count'];
             $tmp[0] = $value['data'][0] > $tmp[0] ? $value['data'][0] : $tmp[0];
             $tmp[1] = $value['data'][1] < $tmp[1] ? $value['data'][1] : $tmp[1];
-            $tmp[2] += round(floatval($value['data'][2] * $value['count'] / $count), 2);
+            $tmp[2] += intval($value['data'][2] * $value['count'] / $count);
         }
         return $tmp;
     }
