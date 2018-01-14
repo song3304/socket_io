@@ -41,7 +41,7 @@ class ProductOpenPrices {
         $product_id = (string)$product_id;
         $sell = isset($this->records[$product_id]['sell']['open_price'])?$this->records[$product_id]['sell']['open_price']:'-';
         $buy = isset($this->records[$product_id]['buy']['open_price'])?$this->records[$product_id]['buy']['open_price']:'-';
-        return ['sell_open_price'=>$sell,'buy_open_price'=>$buy];
+        return ['sell_open_price'=>intval($sell),'buy_open_price'=>intval($buy)];
     }
 
     //将数据整理，后续查询可以加快速度
