@@ -161,7 +161,7 @@ class ClientWorker {
      */
     public function tryToDeleteGatewayAddress($addr, $errstr) {
         // 删除所有设置，以方便下次重新连接
-        unset($this->gatewayConnections[$addr]);
+        unset($this->gatewayConnection);
         Worker::log("tcp://$addr " . $errstr . " $addr will reconnect");
     }
 
