@@ -8,8 +8,6 @@ include __DIR__ . '/autoload.php';
 $server = new SubNotify();
 $server->startServer();
 
-$server1 = new SubNotify(2124,2125);
-$server1->startServer();
 
 if(!defined('GLOBAL_START'))
 {
