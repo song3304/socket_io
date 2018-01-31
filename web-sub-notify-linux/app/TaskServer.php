@@ -519,7 +519,11 @@ class TaskServer extends Worker {
             $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
             $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
-
+            
+            $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
+            $value['phone'] = $user['phone'];
+            $value['qq'] = $user['qq'];
+            
             $type_tag = '';
             switch ($value['trade_type']) {
                 case static::buy: $type_tag = "买";
@@ -561,6 +565,8 @@ class TaskServer extends Worker {
             }
             $value['withdraw_tag'] = $withdraw_type_tag;
         }
+        unset($user);
+        
         foreach ($order as &$value) {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
@@ -584,7 +590,11 @@ class TaskServer extends Worker {
             $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
             $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
-
+            
+            $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
+            $value['phone'] = $user['phone'];
+            $value['qq'] = $user['qq'];
+            
             $type_tag = '';
             switch ($value['trade_type']) {
                 case static::buy: $type_tag = "买";
@@ -626,6 +636,7 @@ class TaskServer extends Worker {
             }
             $value['withdraw_tag'] = $withdraw_type_tag;
         }
+        unset($user);
         foreach ($order as &$value) {
             $value['trade_type'] = 2;   //表明是成交记录
             $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
