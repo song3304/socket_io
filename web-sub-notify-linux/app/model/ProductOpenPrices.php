@@ -71,4 +71,23 @@ class ProductOpenPrices {
     public function clearAllData() {
         $this->records = [];
     }
+    //返回当前所有开盘价信息
+    public function getRecords(){
+        return $this->records;
+    }
+    //获取所有品种-撮合员ids--最新的
+    public function getAllProductMatchIds(){
+        $return_data = [];
+        $sql = "select user_id,product_id from en_product_real_times where delete_time is null";
+        $records = $this->db->query($sql);
+        if(empty($records) || count($records)<1){
+            $yesterday = date("Y-m-d",strtotime("-1 day"));
+            $sql = "select user_id,product_id from en_product_real_times_logs";
+            $records = $this->db->query($sql);
+        }
+        foreach ($records as $item){
+            $return_data[$item['product_id']] = $item['user_id'];
+        }
+        return $return_data;
+    }
 }

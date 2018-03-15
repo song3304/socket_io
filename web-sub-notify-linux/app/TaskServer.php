@@ -86,8 +86,45 @@ class TaskServer extends Worker {
     private function reinit() {
         $this->timestamp = 0;
         $this->records = [];
+        
+        $timestamp = time();
+        $hour = intval(date('H', $timestamp));
+        if($hour>=22){//22点到0点
         //开盘价信息清除
-        $this->product_open_price->clearAllData();
+            $this->product_open_price->clearAllData();
+        }else{//0点到9点,时刻更新开盘价
+            $this->product_open_price->initTodayAllData();
+            $this->notify_open_price = TRUE;
+            $product_open_prices = $this->product_open_price->getRecords();
+            $product_match_ids = $this->product_open_price->getAllProductMatchIds();
+            $open_pan_timestamp = strtotime(date("Y-m-d 09:00:00"));
+            foreach ($product_open_prices as $product_id =>$item){
+                $tmp = [];$tmp['buy'] = $tmp['sell']  = [];
+                $buy_open_price = isset($item['buy'])?$item['buy']:'-';
+                $sell_open_price = isset($item['sell'])?$item['sell']:'-';
+                $tmp['buy_average'] = [$buy_open_price,$buy_open_price,$buy_open_price,$open_pan_timestamp];
+                $tmp['sell_average'] = [$sell_open_price,$sell_open_price,$sell_open_price,$open_pan_timestamp];
+                //推送大盘
+                $user_id = 0;
+                $data = array(
+                    'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
+                    'room' => SubNotifyRooms::roomId(0, $product_id, $user_id),
+                    'data' => QuoteClass::output($product_id, $user_id, $tmp, TRUE),
+                );
+                $this->client_worker->sendToGateway($data);
+                //推送个人盘
+                if(isset($product_match_ids[$product_id])){
+                    foreach ($product_match_ids[$product_id] as $match_id){
+                        $data = array(
+                            'id' => MsgIds::MESSAGE_GATEWAY_TO_GROUP,
+                            'room' => SubNotifyRooms::roomId(0, $product_id, $match_id),
+                            'data' => QuoteClass::output($product_id, $match_id, $tmp, TRUE),
+                        );
+                        $this->client_worker->sendToGateway($data);
+                    }
+                }
+            }
+        }
     }
 
     protected function initTimer() {
