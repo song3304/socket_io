@@ -82,11 +82,11 @@ class ProductOpenPrices {
         $records = $this->db->query($sql);
         if(empty($records) || count($records)<1){
             $yesterday = date("Y-m-d",strtotime("-1 day"));
-            $sql = "select user_id,product_id from en_product_real_times_logs";
+            $sql = "select distinct user_id,product_id from en_product_real_times_logs where date_day='".$yesterday."'";
             $records = $this->db->query($sql);
         }
         foreach ($records as $item){
-            $return_data[$item['product_id']] = $item['user_id'];
+            $return_data[$item['product_id']] = isset($return_data[$item['product_id']])?array_merge($return_data[$item['product_id']],[$item['user_id']]):[$item['user_id']];
         }
         return $return_data;
     }
