@@ -100,8 +100,8 @@ class TaskServer extends Worker {
             $open_pan_timestamp = strtotime(date("Y-m-d 09:00:00"));
             foreach ($product_open_prices as $product_id =>$item){
                 $tmp = [];$tmp['buy'] = $tmp['sell']  = [];
-                $buy_open_price = isset($item['buy'])?$item['buy']:'-';
-                $sell_open_price = isset($item['sell'])?$item['sell']:'-';
+                $buy_open_price = $this->product_open_price->openPice($product_id,'buy');
+                $sell_open_price = $this->product_open_price->openPice($product_id,'sell');
                 $tmp['buy_average'] = [$buy_open_price,$buy_open_price,$buy_open_price,$open_pan_timestamp];
                 $tmp['sell_average'] = [$sell_open_price,$sell_open_price,$sell_open_price,$open_pan_timestamp];
                 //推送大盘
