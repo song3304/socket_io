@@ -46,6 +46,8 @@ class TaskServer extends Worker {
     protected $sub_products = [];
     // 客户端关注的没有数据的大盘
     protected $sub_summary_products = [];
+    // 保存2分钟~1分钟前的数据以防将来用到
+    protected $retain_records = [];
 
     protected function initClientWorker() {
         // 初始化与gateway连接服务
@@ -158,7 +160,8 @@ class TaskServer extends Worker {
             //更新维护数据列表, 到整点都会推送一次
             if (date('s') === '59') {
                 StatisticClient::tick("TimerEmit59", 'emit_emit_summary');
-                $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE);
+                //每一分钟59秒的时候需要强制更新了
+                $this->updateRecords($this->timestamp === 0 ? TRUE : FALSE, TRUE);
                 $this->emit();
                 $this->emit_summary();
                 StatisticClient::report('TimerEmit59', 'emit_emit_summary', true, 0, '');
@@ -450,12 +453,52 @@ class TaskServer extends Worker {
             $this->client_worker->sendToGateway($json);
         }
     }
+    
+    
+    /*
+     * 只保留一分钟内的数据，执行时间点为每一分钟最后一次推送，即59秒的时候
+     */
+    private function updateExpireRecords() {
+        foreach ($this->records as $product_id => &$records) {
+            foreach($records as $user_id=>&$rrs){
+                foreach($rrs as $trade_type=>&$values) {
+                    $max_time = 0;
+                    $loop = 0;
+                    foreach ($values as $key => $r) {
+                        $uptime = strtotime($r['update_time']);
+                        if ($loop++ == 0) {
+                            $max_time = $uptime;
+                        } else if ($uptime > $max_time) {
+                            $max_time = $uptime;
+                        }
+                    }
+                    foreach ($values as $key => $r) {
+                        if (strtotime($r['update_time']) < $max_time - $max_time%60) {
+                            unset($values[$key]);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /*
      * 移除过期数据
      */
 
-    private function removeExpireData(&$records) {
+    private function removeExpireData(&$records, $product_id, $user_id, $trade_type) {
+        //先将删除数据移除
+        foreach ($records as $key => $r) {
+            if (!empty($r['delete_time'])) {
+                unset($records[$key]);
+            }
+        }
+        //如果没有数据了，则需要沿用上次报的数据
+//        if (empty($records)) {
+//            //将之前的数据还原
+//            $records = isset($this->retain_records[$product_id][$user_id][$trade_type])?$this->retain_records[$product_id][$user_id][$trade_type]:[];
+//        }
+        
         //查找最后的时间
         $max_time = 0;
         $loop = 0;
@@ -467,9 +510,10 @@ class TaskServer extends Worker {
                 $max_time = $uptime;
             }
         }
+
         //将该时间60秒之前数据清空
         foreach ($records as $key => $r) {
-            if (strtotime($r['update_time']) < $max_time - 60 || !empty($r['delete_time'])) {
+            if (strtotime($r['update_time']) < $max_time - 60) {
                 unset($records[$key]);
             }
         }
@@ -509,7 +553,7 @@ class TaskServer extends Worker {
             }
 
             //清理过期数据
-            $this->removeExpireData($this->records[$product_id][$user_id][$trade_type]);
+            $this->removeExpireData($this->records[$product_id][$user_id][$trade_type], $product_id, $user_id, $trade_type);
         }
         return array_unique($update_arr);
     }
@@ -519,10 +563,15 @@ class TaskServer extends Worker {
      * @return TRUE:有新数据更新 FALSE:没有新数据
      */
 
-    protected function updateRecords($first_readdb = false/* 首次读取数据 */) {
+    protected function updateRecords($first_readdb = false/* 首次读取数据 */, $update_expiredata = false) {
         //将当前时间保存下来
         $timestamp = $this->timestamp;
         $this->timestamp = time();
+        
+        //需要更新过期数据了,每一分钟59秒的时候需要强制更新了
+        if ($update_expiredata) {
+            $this->updateExpireRecords();
+        }
 
         $new_records = $first_readdb ? $this->selectAllRecords() : $this->selectAllRecordsAccordingTimestamp($timestamp);
 
