@@ -387,6 +387,7 @@ class TaskServer extends Worker {
      */
 
     protected function emit_summary() {
+        $user_id = 0;
         foreach ($this->records as $product_id => $records) {
             $tmp = ['sell' => [], 'buy' => [], 'order' => []];
             foreach ($records as $record) {
@@ -402,10 +403,9 @@ class TaskServer extends Worker {
             }
             // 结构：品类id->撮合id->类型->信息记录id
             $product_id = explode('_', $product_id)[0];
-            $user_id = 0;
+            
             $json = $this->msgDataAll($product_id, $user_id, $tmp);
             $this->client_worker->sendToGateway($json);
-
 			$this->reduceSubProducts($product_id, $user_id);
         }
         //推送没有数据的盘面数据为开盘价
