@@ -299,7 +299,7 @@ class TaskServer extends Worker {
         if ($open_price > 0) {
             foreach ($value as $k => $v) {
                 $price = intval($v['trade_price']);
-                if ($price > $open_price * 1.1 || $price < $open_price * 0.9) {
+                if ($price >= $open_price * 1.1 || $price <= $open_price * 0.9) {
                     unset($value[$k]);
                 }
             }
@@ -597,7 +597,7 @@ class TaskServer extends Worker {
         $sell_buy = $this->db->query("select * from en_product_real_times where "
                 . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
                 . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
-        $order = $this->db->query("select * from en_transactions where "
+        $order = $this->db->query("select id,user_id,product_id,number,price as trade_price,2 trade_type,create_time,update_time,delete_time from en_transactions where "
                 . "UNIX_TIMESTAMP(create_time)>=$timestamp or "
                 . "UNIX_TIMESTAMP(delete_time)>=$timestamp");
 
@@ -653,10 +653,6 @@ class TaskServer extends Worker {
         }
         unset($user);
         
-        foreach ($order as &$value) {
-            $value['trade_type'] = 2;   //表明是成交记录
-            $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
-        }
         $arr = [];
         $arr = array_merge($arr, $sell_buy);
         $arr = array_merge($arr, $order);
@@ -671,7 +667,7 @@ class TaskServer extends Worker {
         //根据时间进行查询，仅仅查询比上次查询时间更晚的记录
         $sell_buy = $this->db->query("select * from en_product_real_times where delete_time is null");
         $timestamp = strtotime(date('Y-m-d 09:00:00', time()));
-        $order = $this->db->query("select * from en_transactions where delete_time is null and UNIX_TIMESTAMP(create_time)>=$timestamp");
+        $order = $this->db->query("select id,user_id,product_id,number,price as trade_price,2 trade_type,create_time,update_time,delete_time from en_transactions where delete_time is null and UNIX_TIMESTAMP(create_time)>=$timestamp");
         foreach ($sell_buy as &$value) {
             $value['product']['name'] = $this->db->single("select name from en_products where id='" . $value['product_id'] . "'");
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
@@ -723,10 +719,7 @@ class TaskServer extends Worker {
             $value['withdraw_tag'] = $withdraw_type_tag;
         }
         unset($user);
-        foreach ($order as &$value) {
-            $value['trade_type'] = 2;   //表明是成交记录
-            $value['trade_price'] = $value['price'];    //为了和报价一致，字段名修改一下
-        }
+
         $arr = [];
         $arr = array_merge($arr, $sell_buy);
         $arr = array_merge($arr, $order);
