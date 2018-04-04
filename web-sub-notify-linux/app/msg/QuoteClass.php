@@ -18,7 +18,7 @@ use App\msg\ErrorMsg;
  */
 class QuoteClass {
 
-    static public function output($product_id, $match_id, $data, $passback = false) {
+    static public function output($product_id, $match_id, $data, $passback = false, $company_id = NULL) {
 //        if (!$json = json_decode($data)) {
 //            return ErrorMsg::output(ErrorMsg::ERROR, ErrorMsg::ERROR_MSG);
 //        }
@@ -31,6 +31,7 @@ class QuoteClass {
                 'code' => 0,
                 'product_id' => $product_id,
                 'match_id' => $match_id,
+                'company_id' => empty($company_id)?0:$company_id,
                 'data' => $json,
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
             );
@@ -39,6 +40,7 @@ class QuoteClass {
                 'code' => 0,
                 'product_id' => $product_id,
                 'match_id' => $match_id,
+                'company_id' => empty($company_id)?0:$company_id,
                 'data' => $json,
                 'event_type' => 'quoteUpdate', //推客户端的事件类型
                 'passback' => '1',

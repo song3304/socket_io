@@ -16,7 +16,7 @@ use App\msg\ErrorMsg;
  */
 class ToClientClass {
     
-    static public function output($product_id, $match_id, $client_id,$data) {
+    static public function output($product_id, $match_id, $client_id,$data,$company_id = NULL) {
 //        if (!$json = json_decode($data)) {
 //            return ErrorMsg::output(ErrorMsg::ERROR, ErrorMsg::ERROR_MSG);
 //        }
@@ -30,6 +30,7 @@ class ToClientClass {
             'product_id' => $product_id,
             'match_id' => $match_id,
             'to_client' => $client_id,
+            'company_id' => empty($company_id)?0:$company_id,
             'data'=>$json,
             'event_type'=>'quoteUpdate',    //推客户端的事件类型
         );
