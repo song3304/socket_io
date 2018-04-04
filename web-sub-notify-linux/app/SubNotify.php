@@ -191,13 +191,14 @@ class SubNotify
     /*
      * 请求数据
      */
-    protected function firstLogin($product_id, $user_id, $client_id) {
+    protected function firstLogin($product_id, $user_id, $client_id, $company_id = NULL) {
         $data = array(
             'id' => MsgIds::MESSAGE_GATEWAY_BUSSINESS,
             'business_type'=>'firstLogin',
             'client'=>$client_id,
             'product_id'=>$product_id,
-            'user_id'=>$user_id
+            'user_id'=>$user_id,
+            'company_id'=>$company_id
         );
         $this->client_worker->sendToGateway($data);
     }
@@ -392,46 +393,46 @@ class SubNotify
             });
 
             // 用户注册自己订阅的服务
-            $socket->on('register', function ($uid, $product_id, $match_id)use($socket) {
+            $socket->on('register', function ($uid, $product_id, $match_id, $company_id = NULL)use($socket) {
                 $uid = $socket->uid;
                 if (!isset($socket->uid))
                 {
                     return;
                 }
                 // 将这个连接加入到uid分组，方便针对uid推送数据
-                $roomId = SubNotifyRooms::roomId($uid, $product_id, $match_id);
+                $roomId = SubNotifyRooms::roomId($uid, $product_id, $match_id, $company_id);
                 // 进入房间名单
                 Worker::log("$uid join $roomId");
                 $socket->join($roomId);
                 // 通知进入房间了
                 $this->sender_io->to($roomId)->emit('member_enter', $uid, $product_id, $match_id);
-                $this->firstLogin($product_id, $match_id, $socket->uid);
+                $this->firstLogin($product_id, $match_id, $socket->uid, $company_id);
             });
-
-            // 当客户端请求更新报价数据
-            $socket->on('quote', function ($product_id, $match_id, $data) use($socket) {
-                if (!isset($socket->uid))
-                {
-                    return;
-                }
-                //通知关注的客户端
-                $room = subNotifyRooms::roomId($socket->uid, $product_id, $match_id);
-                $msg = QuoteClass::output($product_id, $match_id, $data);
-                //通知该组的客户端
-                $this->sendToGroup($room, $msg);
-            });
-            
-            // 当客户端要发给其他客户端的时候
-            $socket->on('send_to_client', function ($to_uid, $data) use($socket) {
-                if (!isset($socket->uid))
-                {
-                    return;
-                }
-                //通知关注的客户端
-                $msg = ToClientClass::output($socket->uid, $to_uid, $data);
-                //通知该组的客户端
-                $this->sendToClient($socket->uid, $to_uid, $msg);
-            });
+//
+//            // 当客户端请求更新报价数据
+//            $socket->on('quote', function ($product_id, $match_id, $data) use($socket) {
+//                if (!isset($socket->uid))
+//                {
+//                    return;
+//                }
+//                //通知关注的客户端
+//                $room = subNotifyRooms::roomId($socket->uid, $product_id, $match_id);
+//                $msg = QuoteClass::output($product_id, $match_id, $data);
+//                //通知该组的客户端
+//                $this->sendToGroup($room, $msg);
+//            });
+//            
+//            // 当客户端要发给其他客户端的时候
+//            $socket->on('send_to_client', function ($to_uid, $data) use($socket) {
+//                if (!isset($socket->uid))
+//                {
+//                    return;
+//                }
+//                //通知关注的客户端
+//                $msg = ToClientClass::output($socket->uid, $to_uid, $data);
+//                //通知该组的客户端
+//                $this->sendToClient($socket->uid, $to_uid, $msg);
+//            });
 
             // 当客户端断开连接时触发（一般是关闭网页或者跳转刷新导致）
             $socket->on('disconnect', function () use($socket) {
