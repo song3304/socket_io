@@ -24,4 +24,5 @@ return array(
         'charset' => 'utf8mb4',
     ],
     'emit_interval'=>2,
+    'product_id'=>11
 );
