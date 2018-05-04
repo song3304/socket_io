@@ -253,7 +253,6 @@ class TaskServer extends Worker {
         $sum = 0;
         $first = TRUE;
         $data = [];
-        $num = 0;
         foreach ($arr as $value) {
             $field_value = isset($value[$field]) ? intval($value[$field]) : 0;
             if ($field === 0) 
@@ -265,11 +264,11 @@ class TaskServer extends Worker {
             } else {
                 $max = $max > $field_value ? $max : $field_value;
                 $min = $min < $field_value ? $min : $field_value;
-                $data[] = $field_value;
-                $num++;
+                $data[] = log($field_value);
             }
         }
-        $average = $num > 0 ? pow(array_product($data),1/$num) : 0;
+
+        $average = !empty($data) ? pow(exp(array_sum($data)),1/count($data)) : 0;
         if ($average === 0) {
             $max = $min = $average = '-';
         } else {
