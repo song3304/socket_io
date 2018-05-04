@@ -260,15 +260,16 @@ class TaskServer extends Worker {
             if ($first) {
                 $first = FALSE;
                 $max = $min = $field_value;
+                $data[] = $field_value;
                 continue;
             } else {
                 $max = $max > $field_value ? $max : $field_value;
                 $min = $min < $field_value ? $min : $field_value;
-                $data[] = log($field_value);
+                $data[] = $field_value;
             }
         }
 
-        $average = !empty($data) ? pow(exp(array_sum($data)),1/count($data)) : 0;
+        $average = !empty($data) ? pow(array_product($data),1/count($data)) : 0;
         if ($average === 0) {
             $max = $min = $average = '-';
         } else {
