@@ -216,7 +216,7 @@ class TaskServer extends Worker {
      * 根据字段，查找最大值、最小值、平均值、当前时间戳
      */
 
-    private function arraySummary(array $arr, $field = 'trade_price') {
+    /*private function arraySummary(array $arr, $field = 'trade_price') {
         $max = 0;
         $min = 0;
         $average = 0;
@@ -240,6 +240,39 @@ class TaskServer extends Worker {
             $max = $min = $average = '-';
         } else {
             $average = intval($average);
+            $max = intval($max);
+            $min = intval($min);
+        }
+        return [$max, $min, $average, $this->timestamp];
+    }*/
+    
+    private function arraySummary(array $arr, $field = 'trade_price') {
+        $max = 0;
+        $min = 0;
+        $average = 0;
+        $sum = 0;
+        $first = TRUE;
+        $data = [];
+        foreach ($arr as $value) {
+            $field_value = isset($value[$field]) ? intval($value[$field]) : 0;
+            if ($field === 0) 
+                continue;
+            if ($first) {
+                $first = FALSE;
+                $max = $min = $field_value;
+                continue;
+            } else {
+                $max = $max > $field_value ? $max : $field_value;
+                $min = $min < $field_value ? $min : $field_value;
+                $data[] = $field_value;
+            }
+        }
+        $num = count($arr);
+        $average = $num > 0 ? pow(array_product($data),$num) : 0;
+        if ($average === 0) {
+            $max = $min = $average = '-';
+        } else {
+            $average = round($average);
             $max = intval($max);
             $min = intval($min);
         }
