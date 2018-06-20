@@ -722,7 +722,7 @@ class TaskServer extends Worker {
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
             $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
             
-            $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
+            $user = $this->db->row("select phone,qq,nickname,realname from en_users where id='".$value['user_id']."'");
             $value['phone'] = $user['phone'];
             $value['qq'] = $user['qq'];
             $value['mather_name'] = !empty($user['nickname'])?$user['nickname']:$user['realname'];
@@ -790,11 +790,11 @@ class TaskServer extends Worker {
             $value['trader']['name'] = $this->db->single("select name from en_trader_company where id='" . $value['trader_id'] . "'");
             $value['stock']['name'] = $this->db->single("select name from en_storages where id='" . $value['stock_id'] . "'");
             
-            $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
+            $user = $this->db->row("select phone,qq,nickname,realname from en_users where id='".$value['user_id']."'");
             $value['phone'] = $user['phone'];
             $value['qq'] = $user['qq'];
             $value['mather_name'] = !empty($user['nickname'])?$user['nickname']:$user['realname'];
-            
+
             $type_tag = '';
             switch ($value['trade_type']) {
                 case static::buy: $type_tag = "买";
