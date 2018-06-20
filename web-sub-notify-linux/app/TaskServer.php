@@ -725,6 +725,7 @@ class TaskServer extends Worker {
             $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
             $value['phone'] = $user['phone'];
             $value['qq'] = $user['qq'];
+            $value['mather_name'] = !empty($user['nickname'])?$user['nickname']:$user['realname'];
             
             $type_tag = '';
             switch ($value['trade_type']) {
@@ -792,6 +793,7 @@ class TaskServer extends Worker {
             $user = $this->db->row("select phone,qq from en_users where id='".$value['user_id']."'");
             $value['phone'] = $user['phone'];
             $value['qq'] = $user['qq'];
+            $value['mather_name'] = !empty($user['nickname'])?$user['nickname']:$user['realname'];
             
             $type_tag = '';
             switch ($value['trade_type']) {
