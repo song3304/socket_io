@@ -296,12 +296,12 @@ class TaskServer extends Worker {
         //将array中的key去掉
         $tmp = [];
         if(empty($record)){
-            //$open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
             $tmp['buy'] = $tmp['sell']  = [];
-            //$tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
-            //$tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
-            $tmp['buy_average'] = ['-','-','-',$this->timestamp];
-            $tmp['sell_average'] = ['-','-','-',$this->timestamp];
+            $push_buy_price = $open_price_info['buy_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $push_sell_price = $open_price_info['sell_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $tmp['buy_average'] = [$push_buy_price,$push_buy_price,$push_buy_price,$this->timestamp];
+            $tmp['sell_average'] = [$push_sell_price,$push_sell_price,$push_sell_price,$this->timestamp];
         }else{
             foreach ($record as $key => $value) {
                 $tmp[$key] = array_values($value);
@@ -332,12 +332,12 @@ class TaskServer extends Worker {
         //将array中的key去掉
         $tmp = [];
         if(empty($record)){
-            //$open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
             $tmp['buy'] = $tmp['sell']  = [];
-            //$tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
-            //$tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
-            $tmp['buy_average'] = ['-','-','-',$this->timestamp];
-            $tmp['sell_average'] = ['-','-','-',$this->timestamp];
+            $push_buy_price = $open_price_info['buy_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $push_sell_price = $open_price_info['sell_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $tmp['buy_average'] = [$push_buy_price,$push_buy_price,$push_buy_price,$this->timestamp];
+            $tmp['sell_average'] = [$push_sell_price,$push_sell_price,$push_sell_price,$this->timestamp];
         }else{
             foreach ($record as $key => $value) {
                 $tmp[$key] = array_values($value);
@@ -381,12 +381,12 @@ class TaskServer extends Worker {
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
         if(empty($record)){
-            //$open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
             $tmp['buy'] = $tmp['sell']  = [];
-            //$tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
-            //$tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
-            $tmp['buy_average'] = ['-','-','-',$this->timestamp];
-            $tmp['sell_average'] = ['-','-','-',$this->timestamp];
+            $push_buy_price = $open_price_info['buy_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $push_sell_price = $open_price_info['sell_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $tmp['buy_average'] = [$push_buy_price,$push_buy_price,$push_buy_price,$this->timestamp];
+            $tmp['sell_average'] = [$push_sell_price,$push_sell_price,$push_sell_price,$this->timestamp];
         }
         //增加开盘信息
         if ($this->notify_open_price) {
@@ -431,12 +431,12 @@ class TaskServer extends Worker {
             $tmp[$key . '_average'] = $this->arraySummary($value);
         }
         if(empty($record)){
-            //$open_price_info = $this->product_open_price->openPriceInfo($product_id);
+            $open_price_info = $this->product_open_price->openPriceInfo($product_id);
             $tmp['buy'] = $tmp['sell']  = [];
-            //$tmp['buy_average'] = [$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$open_price_info['buy_open_price'],$this->timestamp];
-            //$tmp['sell_average'] = [$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$open_price_info['sell_open_price'],$this->timestamp];
-            $tmp['buy_average'] = ['-','-','-',$this->timestamp];
-            $tmp['sell_average'] = ['-','-','-',$this->timestamp];
+            $push_buy_price = $open_price_info['buy_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $push_sell_price = $open_price_info['sell_open_price'];//date("H:i",$this->timestamp) == "09:00"?:'-';
+            $tmp['buy_average'] = [$push_buy_price,$push_buy_price,$push_buy_price,$this->timestamp];
+            $tmp['sell_average'] = [$push_sell_price,$push_sell_price,$push_sell_price,$this->timestamp];
         }
         //增加开盘信息
         if ($this->notify_open_price) {
