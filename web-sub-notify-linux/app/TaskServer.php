@@ -777,6 +777,7 @@ class TaskServer extends Worker {
                     $withdraw_type_tag = '未知';
             }
             $value['withdraw_tag'] = $withdraw_type_tag;
+            unset($value['note']);
         }
         unset($user);
         
@@ -845,6 +846,7 @@ class TaskServer extends Worker {
                     $withdraw_type_tag = '未知';
             }
             $value['withdraw_tag'] = $withdraw_type_tag;
+            unset($value['note']);
         }
         unset($user);
 
