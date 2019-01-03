@@ -55,8 +55,6 @@ class ClientWorker {
         $this->groupInfo = $group_info;
         Timer::add(1, array($this, 'checkGatewayConnections'));
         $this->checkGatewayConnections();
-        Timer::add(2, array($this, 'joinGroup'), [], FALSE);
-        Timer::add(30, array($this, 'joinGroup'));
     }
 
     public function joinGroup() {
@@ -135,6 +133,7 @@ class ClientWorker {
      */
     public function onConnectGateway($connection) {
         $this->gatewayConnection = $connection;
+        $this->joinGroup();
     }
 
     /**
